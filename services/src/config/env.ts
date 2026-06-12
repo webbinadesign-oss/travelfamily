@@ -1,0 +1,106 @@
+/**
+ * Typed, validated environment configuration.
+ * Secrets are read from process.env only — never hard-coded.
+ */
+import dotenv from 'dotenv';
+dotenv.config();
+
+function str(name: string, fallback = ''): string {
+  const v = process.env[name];
+  return v === undefined || v === '' ? fallback : v;
+}
+function num(name: string, fallback: number): number {
+  const v = process.env[name];
+  const n = v ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : fallback;
+}
+function list(name: string, fallback: string[] = []): string[] {
+  const v = process.env[name];
+  return v ? v.split(',').map((s) => s.trim()).filter(Boolean) : fallback;
+}
+
+export type AmadeusEnv = 'test' | 'production';
+
+export interface Env {
+  nodeEnv: string;
+  isProd: boolean;
+  port: number;
+  corsOrigins: string[];
+
+  openaiApiKey: string;
+  openaiModel: string;
+
+  elevenLabsApiKey: string;
+  elevenLabsAgentId: string;
+  elevenLabsVoiceId: string;
+
+  amadeusEnv: AmadeusEnv;
+  amadeusApiKey: string;
+  amadeusApiSecret: string;
+
+  googleApiKey: string;
+  openWeatherApiKey: string;
+
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  supabaseServiceRoleKey: string;
+
+  bookingApiUrl: string;
+  bookingApiKey: string;
+
+  exchangeRateApiKey: string;
+}
+
+export const env: Env = {
+  nodeEnv: str('NODE_ENV', 'development'),
+  get isProd() {
+    return this.nodeEnv === 'production';
+  },
+  port: num('PORT', 8787),
+  corsOrigins: list('CORS_ORIGINS', []),
+
+  openaiApiKey: str('OPENAI_API_KEY'),
+  openaiModel: str('OPENAI_MODEL', 'gpt-4o-mini'),
+
+  elevenLabsApiKey: str('ELEVENLABS_API_KEY'),
+  elevenLabsAgentId: str('ELEVENLABS_AGENT_ID', 'agent_0001kt43rqqte7ks86mzvavmacjs'),
+  elevenLabsVoiceId: str('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM'),
+
+  amadeusEnv: (str('AMADEUS_ENV', 'test') as AmadeusEnv),
+  amadeusApiKey: str('AMADEUS_API_KEY'),
+  amadeusApiSecret: str('AMADEUS_API_SECRET'),
+
+  googleApiKey: str('GOOGLE_CLOUD_API_KEY'),
+  openWeatherApiKey: str('OPENWEATHER_API_KEY'),
+
+  supabaseUrl: str('SUPABASE_URL'),
+  supabaseAnonKey: str('SUPABASE_ANON_KEY'),
+  supabaseServiceRoleKey: str('SUPABASE_SERVICE_ROLE_KEY'),
+
+  bookingApiUrl: str('BOOKING_API_URL', 'https://demandapi.booking.com/3.2'),
+  bookingApiKey: str('BOOKING_API_KEY'),
+
+  exchangeRateApiKey: str('EXCHANGERATE_API_KEY'),
+} as Env;
+
+/** Which integrations are configured (used by /health and graceful 503s). */
+export function integrationStatus(): Record<string, boolean> {
+  return {
+    openai: Boolean(env.openaiApiKey),
+    elevenlabs: Boolean(env.elevenLabsApiKey),
+    amadeus: Boolean(env.amadeusApiKey && env.amadeusApiSecret),
+    google: Boolean(env.googleApiKey),
+    weather: Boolean(env.openWeatherApiKey),
+    supabase: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+    booking: Boolean(env.bookingApiKey),
+    exchangeRate: Boolean(env.exchangeRateApiKey),
+  };
+}
+
+/** Warn (don't crash) about missing keys at startup. */
+export function validateEnv(log: (msg: string) => void = console.warn): void {
+  const status = integrationStatus();
+  for (const [name, ok] of Object.entries(status)) {
+    if (!ok) log(`[env] ${name} is not configured — its routes will return 503 until keys are set.`);
+  }
+}

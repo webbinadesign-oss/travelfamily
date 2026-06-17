@@ -2,38 +2,36 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
+import { resolveUser, userId, type AuthedRequest } from '../middleware/auth.js';
 import { memoryService } from '../services/memory.service.js';
 
 export const memoryRouter = Router();
 
 /**
- * NOTE on auth: in production, derive userId from the verified Supabase JWT
- * (Authorization: Bearer <access_token>) via middleware. For now we accept it
- * as a path/param so the endpoints are testable; never trust a client-supplied
- * userId in production.
+ * AUTH: every route runs `resolveUser` first. If a valid Supabase token is sent
+ * (Authorization: Bearer <access_token>), the authenticated user id wins and a
+ * client can never touch another user's memory. Without a token we fall back to
+ * the :userId in the path (transition/testing phase).
  */
-const UserParam = z.object({ userId: z.string().uuid() });
+memoryRouter.use('/:userId', resolveUser);
+
+/** Ensure a users row exists (with email from the token when available). */
+async function ensure(req: AuthedRequest): Promise<string> {
+  const id = userId(req);
+  await memoryService.ensureUser(id, req.userEmail);
+  return id;
+}
 
 /** GET /api/memory/:userId/context — everything Webbina needs to greet + recall. */
-memoryRouter.get(
-  '/:userId/context',
-  validate(UserParam, 'params'),
-  asyncHandler(async (req, res) => {
-    const { userId } = valid<{ userId: string }>(req);
-    res.json(await memoryService.getContext(userId));
-  }),
-);
+memoryRouter.get('/:userId/context', asyncHandler(async (req, res) => {
+  res.json(await memoryService.getContext(userId(req)));
+}));
 
 /** GET /api/memory/:userId/greeting — just the spoken greeting + summary. */
-memoryRouter.get(
-  '/:userId/greeting',
-  validate(UserParam, 'params'),
-  asyncHandler(async (req, res) => {
-    const { userId } = valid<{ userId: string }>(req);
-    const ctx = await memoryService.getContext(userId);
-    res.json({ greeting: ctx.greeting, summary: ctx.summary, returning: ctx.returning });
-  }),
-);
+memoryRouter.get('/:userId/greeting', asyncHandler(async (req, res) => {
+  const ctx = await memoryService.getContext(userId(req));
+  res.json({ greeting: ctx.greeting, summary: ctx.summary, returning: ctx.returning });
+}));
 
 /* ── Profile ──────────────────────────────────────────────── */
 const ProfileBody = z.object({
@@ -45,11 +43,12 @@ const ProfileBody = z.object({
   budgetCurrency: z.string().optional(),
   pace: z.enum(['relaxed', 'balanced', 'intense']).optional(),
 });
-memoryRouter.get('/:userId/profile', validate(UserParam, 'params'), asyncHandler(async (req, res) => {
-  res.json(await memoryService.getProfile(req.params['userId'] as string));
+memoryRouter.get('/:userId/profile', asyncHandler(async (req, res) => {
+  res.json(await memoryService.getProfile(userId(req)));
 }));
 memoryRouter.put('/:userId/profile', validate(ProfileBody, 'body'), asyncHandler(async (req, res) => {
-  res.json(await memoryService.upsertProfile(req.params['userId'] as string, valid(req)));
+  const id = await ensure(req);
+  res.json(await memoryService.upsertProfile(id, valid(req)));
 }));
 
 /* ── Preferences ──────────────────────────────────────────── */
@@ -61,11 +60,12 @@ const PrefsBody = z.object({
   accessibility: z.array(z.string()).optional(),
   dietary: z.array(z.string()).optional(),
 });
-memoryRouter.get('/:userId/preferences', validate(UserParam, 'params'), asyncHandler(async (req, res) => {
-  res.json(await memoryService.getPreferences(req.params['userId'] as string));
+memoryRouter.get('/:userId/preferences', asyncHandler(async (req, res) => {
+  res.json(await memoryService.getPreferences(userId(req)));
 }));
 memoryRouter.put('/:userId/preferences', validate(PrefsBody, 'body'), asyncHandler(async (req, res) => {
-  res.json(await memoryService.upsertPreferences(req.params['userId'] as string, valid(req)));
+  const id = await ensure(req);
+  res.json(await memoryService.upsertPreferences(id, valid(req)));
 }));
 
 /* ── Travelers ────────────────────────────────────────────── */
@@ -76,11 +76,12 @@ const TravelerBody = z.object({
   isDefault: z.boolean().optional(),
   notes: z.string().optional(),
 });
-memoryRouter.get('/:userId/travelers', validate(UserParam, 'params'), asyncHandler(async (req, res) => {
-  res.json({ items: await memoryService.getTravelers(req.params['userId'] as string) });
+memoryRouter.get('/:userId/travelers', asyncHandler(async (req, res) => {
+  res.json({ items: await memoryService.getTravelers(userId(req)) });
 }));
 memoryRouter.post('/:userId/travelers', validate(TravelerBody, 'body'), asyncHandler(async (req, res) => {
-  res.status(201).json(await memoryService.addTraveler(req.params['userId'] as string, valid(req)));
+  const id = await ensure(req);
+  res.status(201).json(await memoryService.addTraveler(id, valid(req)));
 }));
 
 /* ── Passports ────────────────────────────────────────────── */
@@ -92,11 +93,12 @@ const PassportBody = z.object({
   issuedOn: z.string().optional(),
   expiresOn: z.string(),
 });
-memoryRouter.get('/:userId/passports', validate(UserParam, 'params'), asyncHandler(async (req, res) => {
-  res.json({ items: await memoryService.getPassports(req.params['userId'] as string) });
+memoryRouter.get('/:userId/passports', asyncHandler(async (req, res) => {
+  res.json({ items: await memoryService.getPassports(userId(req)) });
 }));
 memoryRouter.post('/:userId/passports', validate(PassportBody, 'body'), asyncHandler(async (req, res) => {
-  res.status(201).json(await memoryService.addPassport(req.params['userId'] as string, valid(req)));
+  const id = await ensure(req);
+  res.status(201).json(await memoryService.addPassport(id, valid(req)));
 }));
 
 /* ── Saved trips ──────────────────────────────────────────── */
@@ -112,11 +114,12 @@ const TripBody = z.object({
   summary: z.string().optional(),
   coverUrl: z.string().optional(),
 });
-memoryRouter.get('/:userId/trips', validate(UserParam, 'params'), asyncHandler(async (req, res) => {
-  res.json({ items: await memoryService.getTrips(req.params['userId'] as string) });
+memoryRouter.get('/:userId/trips', asyncHandler(async (req, res) => {
+  res.json({ items: await memoryService.getTrips(userId(req)) });
 }));
 memoryRouter.post('/:userId/trips', validate(TripBody, 'body'), asyncHandler(async (req, res) => {
-  res.status(201).json(await memoryService.saveTrip(req.params['userId'] as string, valid(req)));
+  const id = await ensure(req);
+  res.status(201).json(await memoryService.saveTrip(id, valid(req)));
 }));
 
 /* ── Conversation memory + summary ────────────────────────── */
@@ -131,14 +134,14 @@ const ConvBody = z.object({
   })).min(1),
 });
 memoryRouter.post('/:userId/conversation', validate(ConvBody, 'body'), asyncHandler(async (req, res) => {
-  const userId = req.params['userId'] as string;
+  const id = await ensure(req);
   const { entries } = valid<{ entries: Array<Record<string, unknown>> }>(req);
-  await memoryService.recordConversation(entries.map((e) => ({ ...e, userId })) as never);
+  await memoryService.recordConversation(entries.map((e) => ({ ...e, userId: id })) as never);
   res.status(201).json({ ok: true, stored: entries.length });
 }));
 
 /** POST /api/memory/:userId/summarize — regenerate the preference summary. */
-memoryRouter.post('/:userId/summarize', validate(UserParam, 'params'), asyncHandler(async (req, res) => {
-  const summary = await memoryService.summarize(req.params['userId'] as string);
+memoryRouter.post('/:userId/summarize', asyncHandler(async (req, res) => {
+  const summary = await memoryService.summarize(userId(req));
   res.json({ summary });
 }));

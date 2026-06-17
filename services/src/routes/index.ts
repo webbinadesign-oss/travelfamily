@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { integrationStatus } from '../config/env.js';
+import { env, integrationStatus } from '../config/env.js';
 import { flightsRouter } from './flights.routes.js';
 import { chatRouter } from './chat.routes.js';
 import { voiceRouter } from './voice.routes.js';
@@ -9,9 +9,22 @@ import { memoryRouter } from './memory.routes.js';
 
 export const apiRouter = Router();
 
-/** Liveness + which integrations are configured. */
+/** Build marker — bump when you deploy so you can confirm the live version. */
+export const BUILD_VERSION = 'phase2-auth-1';
+
+/** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime(), integrations: integrationStatus() });
+  res.json({ status: 'ok', version: BUILD_VERSION, uptime: process.uptime(), integrations: integrationStatus() });
+});
+
+/** Public config for the browser client (anon key is safe to expose). */
+apiRouter.get('/config', (_req, res) => {
+  res.json({
+    supabaseUrl: env.supabaseUrl.replace(/\/rest\/v1\/?$/, ''),
+    supabaseAnonKey: env.supabaseAnonKey || '',
+    authEnabled: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+    elevenAgentId: env.elevenLabsAgentId,
+  });
 });
 
 apiRouter.use('/chat', chatRouter); // OpenAI — Webbina's brain

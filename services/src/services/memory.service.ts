@@ -66,6 +66,16 @@ const mapTrip = (r: any): SavedTrip => ({
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export const memoryService = {
+  /* ── User bootstrap ─────────────────────────────────────────────────────── */
+  /** Make sure a users row exists before writing anything that references it.
+      With service_role we own this; in production the id comes from the JWT. */
+  async ensureUser(userId: string, email?: string): Promise<void> {
+    await supabase.upsert('users', {
+      id: userId,
+      ...(email ? { email } : {}),
+    }, 'id');
+  },
+
   /* ── Reads ──────────────────────────────────────────────────────────────── */
   async getProfile(userId: string): Promise<TravelProfile | null> {
     const r = await supabase.selectOne<Record<string, unknown>>('travel_profiles', { match: { user_id: userId } });
@@ -90,6 +100,7 @@ export const memoryService = {
 
   /* ── Writes ─────────────────────────────────────────────────────────────── */
   async upsertProfile(userId: string, patch: Partial<TravelProfile>): Promise<TravelProfile> {
+    await this.ensureUser(userId);
     const row = {
       user_id: userId,
       ...(patch.homeAirport !== undefined ? { home_airport: patch.homeAirport } : {}),
@@ -104,6 +115,7 @@ export const memoryService = {
     return mapProfile(saved);
   },
   async upsertPreferences(userId: string, patch: Partial<TripPreferences>): Promise<TripPreferences> {
+    await this.ensureUser(userId);
     const row = {
       user_id: userId,
       ...(patch.interests !== undefined ? { interests: patch.interests } : {}),
@@ -117,6 +129,7 @@ export const memoryService = {
     return mapPrefs(saved);
   },
   async addTraveler(userId: string, t: Partial<Traveler>): Promise<Traveler> {
+    await this.ensureUser(userId);
     const [saved] = await supabase.upsert<Record<string, unknown>>('travelers', {
       user_id: userId, full_name: t.fullName, relation: t.relation ?? null,
       birthdate: t.birthdate ?? null, is_default: t.isDefault ?? false, notes: t.notes ?? null,
@@ -124,6 +137,7 @@ export const memoryService = {
     return mapTraveler(saved);
   },
   async addPassport(userId: string, p: Partial<Passport> & { numberLast4?: string }): Promise<Passport> {
+    await this.ensureUser(userId);
     const [saved] = await supabase.upsert<Record<string, unknown>>('passports', {
       user_id: userId, traveler_id: p.travelerId ?? null, holder_name: p.holderName,
       nationality: p.nationality, number_last4: p.numberLast4 ?? null,
@@ -132,6 +146,7 @@ export const memoryService = {
     return mapPassport(saved);
   },
   async saveTrip(userId: string, t: Partial<SavedTrip>): Promise<SavedTrip> {
+    await this.ensureUser(userId);
     const [saved] = await supabase.upsert<Record<string, unknown>>('saved_trips', {
       user_id: userId, title: t.title, destination: t.destination ?? null, country: t.country ?? null,
       start_date: t.startDate ?? null, end_date: t.endDate ?? null, status: t.status ?? 'idea',
@@ -142,6 +157,7 @@ export const memoryService = {
   },
   async recordConversation(entries: ConversationEntry[]): Promise<void> {
     if (!entries.length) return;
+    await this.ensureUser(entries[0]!.userId);
     await supabase.upsert('conversation_memory', entries.map((e) => ({
       user_id: e.userId, session_id: e.sessionId ?? null, kind: e.kind ?? 'message',
       role: e.role ?? null, content: e.content, emotion: e.emotion ?? null, importance: e.importance ?? 0,

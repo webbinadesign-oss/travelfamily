@@ -25,10 +25,17 @@ function assertConfigured(): void {
 
 function headers(extra: Record<string, string> = {}): Record<string, string> {
   const key = env.supabaseServiceRoleKey || env.supabaseAnonKey;
+  // Force the PostgreSQL schema that holds our tables (the migration creates them
+  // in "public"). Some Supabase projects default the Data API to another schema
+  // (e.g. "api"); these headers make every request target the right one
+  // regardless. Override with SUPABASE_SCHEMA if you created them elsewhere.
+  const schema = env.supabaseSchema || 'public';
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
     'Content-Type': 'application/json',
+    'Accept-Profile': schema,   // schema for GET/HEAD
+    'Content-Profile': schema,  // schema for POST/PATCH/PUT/DELETE
     ...extra,
   };
 }

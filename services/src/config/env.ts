@@ -44,6 +44,7 @@ export interface Env {
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
+  supabaseSchema: string;
 
   bookingApiUrl: string;
   bookingApiKey: string;
@@ -76,6 +77,7 @@ export const env: Env = {
   supabaseUrl: str('SUPABASE_URL'),
   supabaseAnonKey: str('SUPABASE_ANON_KEY'),
   supabaseServiceRoleKey: str('SUPABASE_SERVICE_ROLE_KEY'),
+  supabaseSchema: str('SUPABASE_SCHEMA', 'public'),
 
   bookingApiUrl: str('BOOKING_API_URL', 'https://demandapi.booking.com/3.2'),
   bookingApiKey: str('BOOKING_API_KEY'),
@@ -91,7 +93,7 @@ export function integrationStatus(): Record<string, boolean> {
     amadeus: Boolean(env.amadeusApiKey && env.amadeusApiSecret),
     google: Boolean(env.googleApiKey),
     weather: Boolean(env.openWeatherApiKey),
-    supabase: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+    supabase: Boolean(env.supabaseUrl && (env.supabaseServiceRoleKey || env.supabaseAnonKey)),
     booking: Boolean(env.bookingApiKey),
     exchangeRate: Boolean(env.exchangeRateApiKey),
   };

@@ -7,12 +7,18 @@ import { notFound, errorHandler } from './middleware/errorHandler.js';
 export function createApp(): Application {
   const app = express();
 
+  // CORS — permissive by default (testing phase). If CORS_ORIGINS is set,
+  // restrict to that allow-list; otherwise reflect ANY origin so the hosted
+  // Console / Prototype can connect from anywhere.
+  const allowList = env.corsOrigins;
   app.use(
-    cors({
-      origin: env.corsOrigins.length ? env.corsOrigins : true,
-      credentials: true,
-    }),
+    cors(
+      allowList.length
+        ? { origin: allowList, credentials: true }
+        : { origin: true }, // reflect any origin, no credentials → works everywhere
+    ),
   );
+  app.options('*', cors()); // answer all preflight requests
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/', (_req, res) => {

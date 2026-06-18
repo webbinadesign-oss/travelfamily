@@ -2,7 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
+import { env } from '../config/env.js';
+import { duffelService } from '../services/duffel.service.js';
 import { amadeusService } from '../services/amadeus.service.js';
+import { ApiError } from '../lib/ApiError.js';
 import type { FlightSearchQuery, HotelSearchQuery } from '../types/index.js';
 
 export const flightsRouter = Router();
@@ -26,8 +29,11 @@ flightsRouter.get(
   validate(FlightQuery, 'query'),
   asyncHandler(async (req, res) => {
     const q = valid<FlightSearchQuery>(req);
-    const items = await amadeusService.searchFlights(q);
-    res.json({ items, total: items.length });
+    // Prefer Duffel (current provider); fall back to Amadeus if only that is set.
+    const items = env.duffelApiKey
+      ? await duffelService.searchFlights(q)
+      : await amadeusService.searchFlights(q);
+    res.json({ items, total: items.length, provider: env.duffelApiKey ? 'duffel' : 'amadeus' });
   }),
 );
 
@@ -46,6 +52,10 @@ flightsRouter.get(
   validate(HotelQuery, 'query'),
   asyncHandler(async (req, res) => {
     const q = valid<HotelSearchQuery>(req);
+    // Duffel is flights-only here; hotels still come from Amadeus when configured.
+    if (!env.amadeusApiKey || !env.amadeusApiSecret) {
+      throw ApiError.serviceUnavailable('hotels_not_configured', 'La recherche d\'hôtels nécessite des clés Amadeus (ou un futur service hôtels).');
+    }
     const items = await amadeusService.searchHotels(q);
     res.json({ items, total: items.length });
   }),

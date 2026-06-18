@@ -38,6 +38,9 @@ export interface Env {
   amadeusApiKey: string;
   amadeusApiSecret: string;
 
+  duffelApiKey: string;
+  duffelVersion: string;
+
   googleApiKey: string;
   openWeatherApiKey: string;
 
@@ -71,6 +74,9 @@ export const env: Env = {
   amadeusApiKey: str('AMADEUS_API_KEY'),
   amadeusApiSecret: str('AMADEUS_API_SECRET'),
 
+  duffelApiKey: str('DUFFEL_API_KEY'),
+  duffelVersion: str('DUFFEL_VERSION', 'v2'),
+
   googleApiKey: str('GOOGLE_CLOUD_API_KEY'),
   openWeatherApiKey: str('OPENWEATHER_API_KEY'),
 
@@ -91,6 +97,7 @@ export function integrationStatus(): Record<string, boolean> {
     openai: Boolean(env.openaiApiKey),
     elevenlabs: Boolean(env.elevenLabsApiKey),
     amadeus: Boolean(env.amadeusApiKey && env.amadeusApiSecret),
+    duffel: Boolean(env.duffelApiKey),
     google: Boolean(env.googleApiKey),
     weather: Boolean(env.openWeatherApiKey),
     supabase: Boolean(env.supabaseUrl && (env.supabaseServiceRoleKey || env.supabaseAnonKey)),

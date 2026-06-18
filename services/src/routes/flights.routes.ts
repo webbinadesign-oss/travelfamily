@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
 import { env } from '../config/env.js';
 import { duffelService } from '../services/duffel.service.js';
+import { duffelStaysService } from '../services/duffel-stays.service.js';
 import { amadeusService } from '../services/amadeus.service.js';
 import { ApiError } from '../lib/ApiError.js';
 import type { FlightSearchQuery, HotelSearchQuery } from '../types/index.js';
@@ -38,10 +39,13 @@ flightsRouter.get(
 );
 
 const HotelQuery = z.object({
-  cityCode: z.string().length(3),
+  cityCode: z.string().length(3).optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
   checkInDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   checkOutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   adults: z.coerce.number().int().min(1).max(9),
+  children: z.coerce.number().int().min(0).max(9).optional(),
   roomQuantity: z.coerce.number().int().min(1).max(9).optional(),
   radiusKm: z.coerce.number().int().min(1).max(100).optional(),
   currencyCode: z.string().length(3).optional(),
@@ -52,11 +56,18 @@ flightsRouter.get(
   validate(HotelQuery, 'query'),
   asyncHandler(async (req, res) => {
     const q = valid<HotelSearchQuery>(req);
-    // Duffel is flights-only here; hotels still come from Amadeus when configured.
-    if (!env.amadeusApiKey || !env.amadeusApiSecret) {
-      throw ApiError.serviceUnavailable('hotels_not_configured', 'La recherche d\'hôtels nécessite des clés Amadeus (ou un futur service hôtels).');
+    // Duffel Stays (geo search) is the current provider when lat/lng are given.
+    if (env.duffelApiKey && q.lat !== undefined && q.lng !== undefined) {
+      const items = await duffelStaysService.searchHotels(q);
+      res.json({ items, total: items.length, provider: 'duffel-stays' });
+      return;
     }
-    const items = await amadeusService.searchHotels(q);
-    res.json({ items, total: items.length });
+    // Fallback: Amadeus by cityCode, if configured.
+    if (env.amadeusApiKey && env.amadeusApiSecret && q.cityCode) {
+      const items = await amadeusService.searchHotels(q);
+      res.json({ items, total: items.length, provider: 'amadeus' });
+      return;
+    }
+    throw ApiError.serviceUnavailable('hotels_not_configured', 'La recherche d\'hôtels nécessite des coordonnées (lat/lng) avec Duffel Stays, ou des clés Amadeus avec un cityCode.');
   }),
 );

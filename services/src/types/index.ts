@@ -126,10 +126,13 @@ export interface FlightOffer {
 }
 
 export interface HotelSearchQuery {
-  cityCode: string; // IATA city, e.g. "PAR"
+  cityCode?: string; // IATA city, e.g. "PAR" (Amadeus path)
+  lat?: number;      // geographic search (Duffel Stays path)
+  lng?: number;
   checkInDate: string;
   checkOutDate: string;
   adults: number;
+  children?: number;
   roomQuantity?: number;
   radiusKm?: number;
   currencyCode?: Currency;
@@ -139,9 +142,12 @@ export interface HotelOffer {
   hotelId: string;
   name: string;
   rating?: number;
+  reviewScore?: number;
   geo?: GeoPoint;
   price: Money;
+  perNight?: boolean;
   boardType?: string;
+  photoUrl?: string;
   available: boolean;
 }
 

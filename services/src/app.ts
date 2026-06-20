@@ -29,7 +29,14 @@ export function createApp(): Application {
   // so the hosted Prototype can load + canvas-key the video from anywhere.
   // dist/app.js → ../public when built; src/app.ts → ../public in dev.
   const publicDir = path.resolve(__dirname, '../public');
-  app.use('/media', express.static(publicDir, { maxAge: '7d' }));
+  app.use('/media', express.static(publicDir, {
+    maxAge: '7d',
+    setHeaders: (res) => {
+      // Force permissive CORS so the browser can canvas-key the video (transparency).
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
+  }));
 
   app.get('/', (_req, res) => {
     res.json({ name: 'Webbina Travel AI — services', version: '0.1.0' });

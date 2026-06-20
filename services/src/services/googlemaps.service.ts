@@ -72,6 +72,7 @@ export const googleMapsService = {
     const data = await httpRequest<{ places?: NewPlace[] }>(`${BASE}/places:searchText`, {
       method: 'POST',
       provider: 'google',
+      query: { key: env.googleApiKey },
       headers: {
         'X-Goog-Api-Key': env.googleApiKey,
         'X-Goog-FieldMask': 'places.location,places.displayName',
@@ -101,6 +102,7 @@ export const googleMapsService = {
     const data = await httpRequest<{ places?: NewPlace[] }>(`${BASE}/places:searchText`, {
       method: 'POST',
       provider: 'google',
+      query: { key: env.googleApiKey },
       headers: {
         'X-Goog-Api-Key': env.googleApiKey,
         'X-Goog-FieldMask': SEARCH_FIELD_MASK,
@@ -115,6 +117,7 @@ export const googleMapsService = {
     const data = await httpRequest<NewPlace>(`${BASE}/places/${placeId}`, {
       method: 'GET',
       provider: 'google',
+      query: { key: env.googleApiKey },
       headers: {
         'X-Goog-Api-Key': env.googleApiKey,
         'X-Goog-FieldMask':

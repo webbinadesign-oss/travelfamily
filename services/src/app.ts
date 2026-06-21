@@ -11,18 +11,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export function createApp(): Application {
   const app = express();
 
-  // CORS — permissive by default (testing phase). If CORS_ORIGINS is set,
-  // restrict to that allow-list; otherwise reflect ANY origin so the hosted
-  // Console / Prototype can connect from anywhere.
-  const allowList = env.corsOrigins;
-  app.use(
-    cors(
-      allowList.length
-        ? { origin: allowList, credentials: true }
-        : { origin: true }, // reflect any origin, no credentials → works everywhere
-    ),
-  );
-  app.options('*', cors()); // answer all preflight requests
+  // CORS — a shared demo is opened from downloaded files (origin "null"),
+  // hosted pages, and phones. Reflect ANY origin so the Prototype/Console can
+  // always reach the API. Secrets stay server-side; memory needs a Bearer token,
+  // so allowing any origin is safe here. (We intentionally ignore CORS_ORIGINS
+  // to avoid silently blocking the family demo.)
+  app.use(cors({ origin: true }));
+  app.options('*', cors({ origin: true })); // answer all preflight requests
   app.use(express.json({ limit: '1mb' }));
 
   // Static media (intro video, etc.) — served from services/public with CORS,

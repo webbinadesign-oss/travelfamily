@@ -6,11 +6,12 @@ import { voiceRouter } from './voice.routes.js';
 import { placesRouter } from './places.routes.js';
 import { weatherRouter } from './weather.routes.js';
 import { memoryRouter } from './memory.routes.js';
+import { coherenceRouter } from './coherence.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-webbina-context-1';
+export const BUILD_VERSION = 'phase3-coherence-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -33,3 +34,4 @@ apiRouter.use('/flights', flightsRouter); // Amadeus — flights & hotels
 apiRouter.use('/places', placesRouter); // Google Maps — places
 apiRouter.use('/weather', weatherRouter); // OpenWeather — weather
 apiRouter.use('/memory', memoryRouter); // Supabase — Webbina Memory
+apiRouter.use('/coherence', coherenceRouter); // Itinerary timing engine (J+1, connections, hotel nights)

@@ -68,7 +68,7 @@ export const env: Env = {
   openaiApiKey: str('OPENAI_API_KEY'),
   openaiModel: str('OPENAI_MODEL', 'gpt-4o-mini'),
   geminiApiKey: str('GEMINI_API_KEY'),
-  geminiModel: str('GEMINI_MODEL', 'gemini-1.5-flash'),
+  geminiModel: str('GEMINI_MODEL', 'gemini-2.5-flash'),
 
   elevenLabsApiKey: str('ELEVENLABS_API_KEY'),
   elevenLabsAgentId: str('ELEVENLABS_AGENT_ID', 'agent_0001kt43rqqte7ks86mzvavmacjs'),

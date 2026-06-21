@@ -89,6 +89,7 @@ chatRouter.post(
 
     // Non-streaming: try each brain until one answers.
     let lastErr: unknown;
+    let firstErr: unknown;
     for (const b of available) {
       try {
         const reply = await b.svc.chat(body.messages, body.context);
@@ -96,9 +97,11 @@ chatRouter.post(
         return;
       } catch (err) {
         lastErr = err;
+        if (firstErr === undefined) firstErr = err; // primary brain (Gemini) error
         logger.warn(`Brain "${b.name}" chat failed, trying next`, { err: String(err) });
       }
     }
-    throw lastErr instanceof Error ? lastErr : new Error('All brains failed');
+    // Surface the PRIMARY brain's error (Gemini) so diagnosis is accurate.
+    throw firstErr instanceof Error ? firstErr : (lastErr instanceof Error ? lastErr : new Error('All brains failed'));
   }),
 );

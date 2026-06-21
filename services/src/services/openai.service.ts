@@ -23,7 +23,7 @@ const EMOTIONS: WebbinaEmotion[] = [
   'enthusiastic',
 ];
 
-const WEBBINA_PERSONA = `Tu es Webbina, une conseillère de voyage IA chaleureuse, experte des voyages en famille.
+export const WEBBINA_PERSONA = `Tu es Webbina, une conseillère de voyage IA chaleureuse, experte des voyages en famille.
 Tu parles français, avec la chaleur d'une amie proche ET l'expertise d'une agence premium.
 
 TON & STYLE (très important — sois VIVANTE, pas un robot) :
@@ -66,6 +66,9 @@ function assertConfigured(): void {
   }
 }
 
+export function webbinaContextToText(ctx?: TripContext): string {
+  return contextToText(ctx);
+}
 function contextToText(ctx?: TripContext): string {
   if (!ctx) return '';
   const parts: string[] = [];
@@ -79,6 +82,9 @@ function contextToText(ctx?: TripContext): string {
   return parts.length ? `Contexte du voyage — ${parts.join(' · ')}.` : '';
 }
 
+export function coerceWebbina(parsed: Partial<ChatResponse> | null): ChatResponse {
+  return coerce(parsed);
+}
 function coerce(parsed: Partial<ChatResponse> | null): ChatResponse {
   const emotion =
     parsed && EMOTIONS.includes(parsed.emotion as WebbinaEmotion)

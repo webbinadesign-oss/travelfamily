@@ -29,6 +29,8 @@ export interface Env {
 
   openaiApiKey: string;
   openaiModel: string;
+  geminiApiKey: string;
+  geminiModel: string;
 
   elevenLabsApiKey: string;
   elevenLabsAgentId: string;
@@ -65,6 +67,8 @@ export const env: Env = {
 
   openaiApiKey: str('OPENAI_API_KEY'),
   openaiModel: str('OPENAI_MODEL', 'gpt-4o-mini'),
+  geminiApiKey: str('GEMINI_API_KEY'),
+  geminiModel: str('GEMINI_MODEL', 'gemini-1.5-flash'),
 
   elevenLabsApiKey: str('ELEVENLABS_API_KEY'),
   elevenLabsAgentId: str('ELEVENLABS_AGENT_ID', 'agent_0001kt43rqqte7ks86mzvavmacjs'),
@@ -95,6 +99,7 @@ export const env: Env = {
 export function integrationStatus(): Record<string, boolean> {
   return {
     openai: Boolean(env.openaiApiKey),
+    gemini: Boolean(env.geminiApiKey),
     elevenlabs: Boolean(env.elevenLabsApiKey),
     amadeus: Boolean(env.amadeusApiKey && env.amadeusApiSecret),
     duffel: Boolean(env.duffelApiKey),

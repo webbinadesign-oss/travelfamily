@@ -12,8 +12,10 @@ import type { WebbinaEmotion } from '../types/index.js';
 
 const URL = 'https://texttospeech.googleapis.com/v1/text:synthesize';
 
-/** Warm, natural French female neural voice for Webbina. */
-const WEBBINA_VOICE = 'fr-FR-Neural2-C';
+/** Webbina's voice. Chirp3-HD = Google's most natural, human voice (2024+).
+ * Aoede is a warm, friendly female timbre. Falls back to Wavenet if HD fails. */
+const WEBBINA_VOICE_HD = 'fr-FR-Chirp3-HD-Aoede';
+const WEBBINA_VOICE_FALLBACK = 'fr-FR-Wavenet-E';
 
 function assertConfigured(): void {
   if (!env.googleApiKey) {
@@ -24,36 +26,46 @@ function assertConfigured(): void {
   }
 }
 
-/** Map emotion → light prosody (rate/pitch) so she's expressive, not flat. */
-function prosody(emotion: WebbinaEmotion): { rate: number; pitch: number } {
-  const map: Record<WebbinaEmotion, { rate: number; pitch: number }> = {
-    neutral: { rate: 1.0, pitch: 0 },
-    focused: { rate: 0.99, pitch: -0.5 },
-    reassuring: { rate: 0.95, pitch: -1.0 },
-    happy: { rate: 1.03, pitch: 1.5 },
-    surprised: { rate: 1.05, pitch: 3.0 },
-    enthusiastic: { rate: 1.06, pitch: 2.5 },
+/** Map emotion → speaking rate. (Chirp3-HD ignores pitch, so we drive warmth via rate.) */
+function rateFor(emotion: WebbinaEmotion): number {
+  const map: Record<WebbinaEmotion, number> = {
+    neutral: 1.0, focused: 0.98, reassuring: 0.94,
+    happy: 1.02, surprised: 1.05, enthusiastic: 1.04,
   };
   return map[emotion];
+}
+
+async function synth(voice: string, text: string, rate: number, withPitch: boolean, pitch: number): Promise<ArrayBuffer> {
+  const data = await httpRequest<{ audioContent?: string }>(URL, {
+    method: 'POST',
+    provider: 'google-tts',
+    timeoutMs: 20_000,
+    query: { key: env.googleApiKey },
+    body: {
+      input: { text },
+      voice: { languageCode: 'fr-FR', name: voice },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: rate,
+        ...(withPitch ? { pitch } : {}),       // HD voices reject pitch
+      },
+    },
+  });
+  if (!data.audioContent) throw ApiError.upstream('google-tts', 502, { reason: 'no_audio' });
+  return Buffer.from(data.audioContent, 'base64').buffer as ArrayBuffer;
 }
 
 export const googleTtsService = {
   async tts(text: string, emotion: WebbinaEmotion = 'happy'): Promise<ArrayBuffer> {
     assertConfigured();
-    const p = prosody(emotion);
-    const data = await httpRequest<{ audioContent?: string }>(URL, {
-      method: 'POST',
-      provider: 'google-tts',
-      timeoutMs: 20_000,
-      query: { key: env.googleApiKey },
-      body: {
-        input: { text },
-        voice: { languageCode: 'fr-FR', name: WEBBINA_VOICE, ssmlGender: 'FEMALE' },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: p.rate, pitch: p.pitch },
-      },
-    });
-    if (!data.audioContent) throw ApiError.upstream('google-tts', 502, { reason: 'no_audio' });
-    // audioContent is base64-encoded MP3.
-    return Buffer.from(data.audioContent, 'base64').buffer as ArrayBuffer;
+    const rate = rateFor(emotion);
+    // 1) Try the natural HD voice (no pitch param — HD doesn't allow it).
+    try {
+      return await synth(WEBBINA_VOICE_HD, text, rate, false, 0);
+    } catch (e) {
+      // 2) Fallback to Wavenet (supports pitch for a touch of warmth).
+      const pitch = emotion === 'reassuring' ? -1.0 : emotion === 'enthusiastic' ? 2.0 : 1.0;
+      return await synth(WEBBINA_VOICE_FALLBACK, text, rate, true, pitch);
+    }
   },
 };

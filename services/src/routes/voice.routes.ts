@@ -4,6 +4,8 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
 import { elevenLabsService, emotionToStyle } from '../services/elevenlabs.service.js';
 import { googleTtsService } from '../services/googletts.service.js';
+import { sttService } from '../services/stt.service.js';
+import express from 'express';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import type { WebbinaEmotion } from '../types/index.js';
@@ -46,7 +48,7 @@ voiceRouter.post(
     const body = valid<{ text: string; voiceId?: string; emotion?: WebbinaEmotion; format?: 'mp3_44100_128' | 'pcm_16000' }>(req);
     const emotion = body.emotion ?? 'happy';
 
-    // 1) Google Cloud TTS — free up to ~1M chars/month, same voice for everyone.
+    // 1) Google Cloud TTS FIRST — free, consistent, natural Chirp3-HD voice.
     if (env.googleApiKey) {
       try {
         const audio = await googleTtsService.tts(body.text, emotion);
@@ -59,7 +61,7 @@ voiceRouter.post(
       }
     }
 
-    // 2) Fallback: ElevenLabs (premium, consumes credits).
+    // 2) Fallback: ElevenLabs premium voice (consumes credits).
     const { audio, contentType } = await elevenLabsService.tts({
       text: body.text,
       ...(body.voiceId ? { voiceId: body.voiceId } : {}),
@@ -69,5 +71,18 @@ voiceRouter.post(
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'no-store');
     res.send(Buffer.from(audio));
+  }),
+);
+
+/** POST /api/voice/stt — transcribe recorded audio to text (works on iPhone too).
+ * Body = raw audio bytes; Content-Type carries the mime (audio/mp4, audio/webm…). */
+voiceRouter.post(
+  '/stt',
+  express.raw({ type: ['audio/*', 'application/octet-stream'], limit: '20mb' }),
+  asyncHandler(async (req, res) => {
+    const buf = req.body as Buffer;
+    if (!buf || !buf.length) { res.status(400).json({ error: { status: 400, code: 'empty_audio', message: 'No audio received.' } }); return; }
+    const text = await sttService.transcribe(buf, (req.headers['content-type'] as string) || 'audio/mp4');
+    res.json({ text });
   }),
 );

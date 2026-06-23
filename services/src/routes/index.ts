@@ -13,7 +13,7 @@ import { dealsRouter } from './deals.routes.js';
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-deals-1';
+export const BUILD_VERSION = 'phase3-deals-2';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {

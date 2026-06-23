@@ -57,7 +57,8 @@ function windows(): { dep: string; ret: string }[] {
 
 async function cheapestFor(origin: string, iata: string): Promise<{ price: number; currency: string; carrier: string; stops: number; dep: string; ret: string } | null> {
   let best: { price: number; currency: string; carrier: string; stops: number; dep: string; ret: string } | null = null;
-  for (const w of windows()) {
+  // Both date windows in parallel.
+  const perWindow = await Promise.all(windows().map(async (w) => {
     try {
       const offers = await duffelService.searchFlights({
         origin, destination: iata, departureDate: w.dep, returnDate: w.ret,
@@ -65,18 +66,20 @@ async function cheapestFor(origin: string, iata: string): Promise<{ price: numbe
       });
       const o = offers[0];
       if (o && o.price?.amount) {
-        const price = Math.round(o.price.amount);
-        if (!best || price < best.price) {
-          best = {
-            price, currency: o.price.currency || 'EUR',
-            carrier: o.segments?.[0]?.carrierCode || '',
-            stops: o.stops || 0, dep: w.dep, ret: w.ret,
-          };
-        }
+        return {
+          price: Math.round(o.price.amount),
+          currency: o.price.currency || 'EUR',
+          carrier: o.segments?.[0]?.carrierCode || '',
+          stops: o.stops || 0, dep: w.dep, ret: w.ret,
+        };
       }
     } catch (e) {
       logger.warn('deal scan failed', { iata, err: String(e) });
     }
+    return null;
+  }));
+  for (const r of perWindow) {
+    if (r && (!best || r.price < best.price)) best = r;
   }
   return best;
 }
@@ -88,8 +91,11 @@ export const dealsService = {
     if (cached && cached.day === todayKey()) return cached.deals.slice(0, limit);
 
     const results: Deal[] = [];
-    for (const c of CATALOG) {
-      const best = await cheapestFor(origin, c.iata);
+    // Scan ALL destinations in parallel — turns ~45s sequential into ~5s.
+    const scans = await Promise.all(
+      CATALOG.map(async (c) => ({ c, best: await cheapestFor(origin, c.iata) })),
+    );
+    for (const { c, best } of scans) {
       if (!best) continue;
       const discount = Math.max(0, Math.round((1 - best.price / c.typical) * 100));
       results.push({

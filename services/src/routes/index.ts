@@ -8,11 +8,12 @@ import { weatherRouter } from './weather.routes.js';
 import { memoryRouter } from './memory.routes.js';
 import { coherenceRouter } from './coherence.routes.js';
 import { bookingRouter } from './booking.routes.js';
+import { dealsRouter } from './deals.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-stripe-commission-1';
+export const BUILD_VERSION = 'phase3-deals-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -39,3 +40,4 @@ apiRouter.use('/weather', weatherRouter); // OpenWeather — weather
 apiRouter.use('/memory', memoryRouter); // Supabase — Webbina Memory
 apiRouter.use('/coherence', coherenceRouter); // Itinerary timing engine (J+1, connections, hotel nights)
 apiRouter.use('/booking', bookingRouter); // Pricing/commission + Stripe payment
+apiRouter.use('/deals', dealsRouter); // Bon plan du jour — deal discovery

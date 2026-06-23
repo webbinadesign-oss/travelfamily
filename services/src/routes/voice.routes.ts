@@ -5,6 +5,7 @@ import { validate, valid } from '../middleware/validate.js';
 import { elevenLabsService, emotionToStyle } from '../services/elevenlabs.service.js';
 import { googleTtsService } from '../services/googletts.service.js';
 import { sttService } from '../services/stt.service.js';
+import { googleSttService, googleSttSupports } from '../services/googlestt.service.js';
 import express from 'express';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
@@ -82,7 +83,21 @@ voiceRouter.post(
   asyncHandler(async (req, res) => {
     const buf = req.body as Buffer;
     if (!buf || !buf.length) { res.status(400).json({ error: { status: 400, code: 'empty_audio', message: 'No audio received.' } }); return; }
-    const text = await sttService.transcribe(buf, (req.headers['content-type'] as string) || 'audio/mp4');
-    res.json({ text });
+    const mime = (req.headers['content-type'] as string) || 'audio/mp4';
+
+    // 1) Google STT FIRST when the format is opus (webm/ogg) — FREE. Covers Android + desktop.
+    if (env.googleApiKey && googleSttSupports(mime)) {
+      try {
+        const text = await googleSttService.transcribe(buf, mime);
+        res.json({ text, provider: 'google' });
+        return;
+      } catch (e) {
+        logger.warn('Google STT failed, falling back to Whisper', { err: String(e) });
+      }
+    }
+
+    // 2) Fallback: Whisper — reads everything, incl. iPhone's mp4/aac.
+    const text = await sttService.transcribe(buf, mime);
+    res.json({ text, provider: 'whisper' });
   }),
 );

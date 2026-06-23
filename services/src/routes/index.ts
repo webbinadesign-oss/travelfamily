@@ -7,11 +7,12 @@ import { placesRouter } from './places.routes.js';
 import { weatherRouter } from './weather.routes.js';
 import { memoryRouter } from './memory.routes.js';
 import { coherenceRouter } from './coherence.routes.js';
+import { bookingRouter } from './booking.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-voice-google-1';
+export const BUILD_VERSION = 'phase3-stripe-commission-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -25,6 +26,8 @@ apiRouter.get('/config', (_req, res) => {
     supabaseAnonKey: env.supabaseAnonKey || '',
     authEnabled: Boolean(env.supabaseUrl && env.supabaseAnonKey),
     elevenAgentId: env.elevenLabsAgentId,
+    stripePublishableKey: env.stripePublishableKey || '',
+    paymentEnabled: Boolean(env.stripeSecretKey && env.stripePublishableKey),
   });
 });
 
@@ -35,3 +38,4 @@ apiRouter.use('/places', placesRouter); // Google Maps — places
 apiRouter.use('/weather', weatherRouter); // OpenWeather — weather
 apiRouter.use('/memory', memoryRouter); // Supabase — Webbina Memory
 apiRouter.use('/coherence', coherenceRouter); // Itinerary timing engine (J+1, connections, hotel nights)
+apiRouter.use('/booking', bookingRouter); // Pricing/commission + Stripe payment

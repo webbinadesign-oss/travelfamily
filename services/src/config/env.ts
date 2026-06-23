@@ -55,6 +55,18 @@ export interface Env {
   bookingApiKey: string;
 
   exchangeRateApiKey: string;
+
+  stripeSecretKey: string;
+  stripePublishableKey: string;
+  stripeCurrency: string;
+
+  // Commission Webbina (transparente, paramétrable)
+  flightFeePerPax: number;   // frais fixe €/voyageur (vols = comparés au centime)
+  hotelMarkupPct: number;    // marge % sur hôtels
+  activityMarkupPct: number; // marge % sur activités
+  packageMarkupPct: number;  // marge % sur séjour assemblé
+  minFee: number;            // plancher par réservation (€)
+  maxMarkupPct: number;      // garde-fou : ne jamais dépasser ce % du total
 }
 
 export const env: Env = {
@@ -93,6 +105,18 @@ export const env: Env = {
   bookingApiKey: str('BOOKING_API_KEY'),
 
   exchangeRateApiKey: str('EXCHANGERATE_API_KEY'),
+
+  stripeSecretKey: str('STRIPE_SECRET_KEY'),
+  stripePublishableKey: str('STRIPE_PUBLISHABLE_KEY'),
+  stripeCurrency: str('STRIPE_CURRENCY', 'eur'),
+
+  // Defaults: competitive + transparent. Override on Render to tune your margin.
+  flightFeePerPax: num('FEE_FLIGHT_PER_PAX', 9),     // 9 € / voyageur
+  hotelMarkupPct: num('FEE_HOTEL_PCT', 0.10),        // 10 %
+  activityMarkupPct: num('FEE_ACTIVITY_PCT', 0.12),  // 12 %
+  packageMarkupPct: num('FEE_PACKAGE_PCT', 0.07),    // 7 %
+  minFee: num('FEE_MIN', 5),                         // 5 € plancher
+  maxMarkupPct: num('FEE_MAX_PCT', 0.15),            // 15 % garde-fou
 } as Env;
 
 /** Which integrations are configured (used by /health and graceful 503s). */
@@ -108,6 +132,7 @@ export function integrationStatus(): Record<string, boolean> {
     supabase: Boolean(env.supabaseUrl && (env.supabaseServiceRoleKey || env.supabaseAnonKey)),
     booking: Boolean(env.bookingApiKey),
     exchangeRate: Boolean(env.exchangeRateApiKey),
+    stripe: Boolean(env.stripeSecretKey),
   };
 }
 

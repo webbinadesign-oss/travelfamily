@@ -17,25 +17,28 @@ export interface Deal {
   origin: string;
   departureDate: string;
   returnDate: string;
-  pricePerPax: number;
+  pricePerPax: number;     // REAL fare found right now (one-way, €/pax)
   currency: string;
-  typicalPrice: number;
-  discountPct: number;   // 0..100, vs typical
   carrier: string;
   stops: number;
-  hot: boolean;          // genuinely good deal (discount ≥ 15%)
+  hot: boolean;            // among the cheapest found in this scan
+  capturedAt: string;      // ISO timestamp — price is "as of" this moment
 }
 
-/** Curated family destinations with a typical round-trip reference price (€/pax). */
-const CATALOG: { iata: string; name: string; country: string; typical: number }[] = [
-  { iata: 'LIS', name: 'Lisbonne', country: 'Portugal', typical: 220 },
-  { iata: 'CTA', name: 'Sicile', country: 'Italie', typical: 240 },
-  { iata: 'BCN', name: 'Barcelone', country: 'Espagne', typical: 180 },
-  { iata: 'AGP', name: 'Malaga', country: 'Espagne', typical: 210 },
-  { iata: 'ATH', name: 'Athènes', country: 'Grèce', typical: 260 },
-  { iata: 'DPS', name: 'Bali', country: 'Indonésie', typical: 950 },
-  { iata: 'RAK', name: 'Marrakech', country: 'Maroc', typical: 230 },
-  { iata: 'DBV', name: 'Dubrovnik', country: 'Croatie', typical: 250 },
+/** Curated family destinations (no invented reference price — we show REAL fares). */
+const CATALOG: { iata: string; name: string; country: string }[] = [
+  { iata: 'LIS', name: 'Lisbonne', country: 'Portugal' },
+  { iata: 'CTA', name: 'Sicile', country: 'Italie' },
+  { iata: 'BCN', name: 'Barcelone', country: 'Espagne' },
+  { iata: 'AGP', name: 'Malaga', country: 'Espagne' },
+  { iata: 'ATH', name: 'Athènes', country: 'Grèce' },
+  { iata: 'DPS', name: 'Bali', country: 'Indonésie' },
+  { iata: 'RAK', name: 'Marrakech', country: 'Maroc' },
+  { iata: 'DBV', name: 'Dubrovnik', country: 'Croatie' },
+  { iata: 'FAO', name: 'Algarve', country: 'Portugal' },
+  { iata: 'NAP', name: 'Naples', country: 'Italie' },
+  { iata: 'PMI', name: 'Majorque', country: 'Espagne' },
+  { iata: 'OPO', name: 'Porto', country: 'Portugal' },
 ];
 
 interface CacheEntry { day: string; deals: Deal[]; }
@@ -45,14 +48,14 @@ function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Two upcoming weekend-ish windows: ~3 and ~6 weeks out, 5-night trips. */
+/** One upcoming window (~4 weeks out) — keeps the daily scan fast on free tier. */
 function windows(): { dep: string; ret: string }[] {
   const mk = (offsetDays: number, nights: number) => {
     const d = new Date(); d.setDate(d.getDate() + offsetDays);
     const r = new Date(d); r.setDate(r.getDate() + nights);
     return { dep: d.toISOString().slice(0, 10), ret: r.toISOString().slice(0, 10) };
   };
-  return [mk(21, 5), mk(45, 7)];
+  return [mk(28, 7)];
 }
 
 async function cheapestFor(origin: string, iata: string): Promise<{ price: number; currency: string; carrier: string; stops: number; dep: string; ret: string } | null> {
@@ -61,7 +64,7 @@ async function cheapestFor(origin: string, iata: string): Promise<{ price: numbe
   const perWindow = await Promise.all(windows().map(async (w) => {
     try {
       const offers = await duffelService.searchFlights({
-        origin, destination: iata, departureDate: w.dep, returnDate: w.ret,
+        origin, destination: iata, departureDate: w.dep,
         adults: 1, maxResults: 1,
       });
       const o = offers[0];
@@ -90,24 +93,28 @@ export const dealsService = {
     const cached = cache.get(key);
     if (cached && cached.day === todayKey()) return cached.deals.slice(0, limit);
 
-    const results: Deal[] = [];
-    // Scan ALL destinations in parallel — turns ~45s sequential into ~5s.
+    // Don't scan a flight from the origin to itself.
+    const targets = CATALOG.filter((c) => c.iata !== origin);
+    const now = new Date().toISOString();
+
     const scans = await Promise.all(
-      CATALOG.map(async (c) => ({ c, best: await cheapestFor(origin, c.iata) })),
+      targets.map(async (c) => ({ c, best: await cheapestFor(origin, c.iata) })),
     );
+    const results: Deal[] = [];
     for (const { c, best } of scans) {
       if (!best) continue;
-      const discount = Math.max(0, Math.round((1 - best.price / c.typical) * 100));
       results.push({
         destination: c.name, country: c.country, iata: c.iata, origin,
         departureDate: best.dep, returnDate: best.ret,
         pricePerPax: best.price, currency: best.currency,
-        typicalPrice: c.typical, discountPct: discount,
-        carrier: best.carrier, stops: best.stops, hot: discount >= 15,
+        carrier: best.carrier, stops: best.stops,
+        hot: false, capturedAt: now,
       });
     }
-    // Best deals first (highest discount, then lowest price).
-    results.sort((a, b) => (b.discountPct - a.discountPct) || (a.pricePerPax - b.pricePerPax));
+    // Cheapest first — a real, honest ranking of what's available now.
+    results.sort((a, b) => a.pricePerPax - b.pricePerPax);
+    // Mark the 2 cheapest as "hot" (genuinely the best prices found in this scan).
+    results.slice(0, 2).forEach((d) => { d.hot = true; });
     cache.set(key, { day: todayKey(), deals: results });
     return results.slice(0, limit);
   },

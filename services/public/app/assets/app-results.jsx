@@ -70,12 +70,12 @@ function DetailScreen({ trip, go, book, favs, toggleFav }) {
           </div>
         </div>
         <div className="detail-hero-cap">
-          <Badge tone={d.ribbon[1]} icon="star">{d.ribbon[0]}</Badge>
+          <Badge tone={(d.ribbon&&d.ribbon[1])||'ocean'} icon="star">{(d.ribbon&&d.ribbon[0])||'Recommandé par Webbina'}</Badge>
           <h2 style={{ color:'#fff', fontSize:30, marginTop:8 }}>{d.name}, {d.country}</h2>
           <div className="row gap3" style={{ color:'#fff', opacity:.95, marginTop:4, fontSize:14 }}>
             <span className="row gap2"><Icon n="mapPin" size={15} />{d.tag}</span>
-            <span className="row gap2"><Icon n="star" size={15} />{String(d.rating).replace('.',',')}</span>
-            <span className="row gap2"><Icon n="users" size={15} />{d.kid}</span>
+            <span className="row gap2"><Icon n="star" size={15} />{String(d.rating||4.6).replace('.',',')}</span>
+            {d._dealDates && <span className="row gap2"><Icon n="calendar" size={15} />{new Date(d._dealDates.dep).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span>}
           </div>
         </div>
       </div>
@@ -95,8 +95,8 @@ function DetailScreen({ trip, go, book, favs, toggleFav }) {
       </div>
 
       <div className="sticky-cta">
-        <div><div className="micro">Voyage complet · 5 pers.</div><b style={{ fontFamily:'var(--font-display)', fontSize:20 }}>{(d.price*5).toLocaleString('fr-FR')} €</b></div>
-        <button className="btn btn--cta" onClick={()=>go('dashboard')}>Réserver<Icon n="arrowRight" size={20} /></button>
+        <div><div className="micro">Estimation · {(d._pax||5)} pers.</div><b style={{ fontFamily:'var(--font-display)', fontSize:20 }}>{(d.price*(d._pax||5)).toLocaleString('fr-FR')} €</b></div>
+        <button className="btn btn--cta" onClick={()=>setTab('apercu')}>Composer le séjour<Icon n="arrowRight" size={20} /></button>
       </div>
     </div>
   );
@@ -127,7 +127,7 @@ function WeatherWidget({ dest }) {
       <div className="row between" style={{ marginBottom: state==='live'?12:0 }}>
         <div className="row gap2" style={{ alignItems:'center' }}>
           <Icon n="sun" size={18} style={{ color:'var(--gold)' }} />
-          <h4 style={{ fontSize:16 }}>Météo à {dest.name}</h4>
+          <h4 style={{ fontSize:16 }}>Météo actuelle à {dest.name}</h4>
         </div>
         {state==='live' && <span className="micro" style={{ color:'var(--success)', fontWeight:700 }}><Icon n="check" size={12} /> En direct</span>}
       </div>
@@ -153,6 +153,9 @@ function WeatherWidget({ dest }) {
                 </div>
               );
             })}
+          </div>
+          <div className="micro" style={{ marginTop:10, color:'var(--text-muted)', lineHeight:1.4 }}>
+            <Icon n="info" size={11} /> Conditions actuelles et tendance sur 5 jours. La météo exacte de votre séjour sera affinée à l'approche des dates.
           </div>
         </React.Fragment>
       )}

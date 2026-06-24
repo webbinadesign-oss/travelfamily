@@ -97,7 +97,7 @@ function FormalitesScreen({ go }) {
         <button className="icon-btn" onClick={()=>go('home')} aria-label="Retour"><Icon n="arrowLeft" size={22} /></button>
         <div style={{ flex:1 }}>
           <b style={{ fontFamily:'var(--font-display)', fontSize:17 }}>Formalités du voyage</b>
-          <div className="micro">{F.trip}</div>
+          <div className="micro">Passeports, visas, vaccins · vérifiés pour votre famille</div>
         </div>
       </div>
 
@@ -119,8 +119,8 @@ function FormalitesScreen({ go }) {
 
         <div className="ai-note" style={{ margin:'14px 0', background:'var(--surface)', border:'1px solid var(--border)', boxShadow:'var(--sh-sm)' }}>
           <Avatar size={36} expr="reassuring" />
-          <div className="micro" style={{ color:'var(--text-2)' }}>J'ai tout vérifié pour vos 5 voyageurs. Il reste <b>une seule action obligatoire</b> — je vous guide pas à pas. 💪
-            <div style={{ marginTop:8 }}><SpeakBtn text="J'ai tout vérifié pour vos 5 voyageurs. Il reste une seule action obligatoire, je vous guide pas à pas." /></div>
+          <div className="micro" style={{ color:'var(--text-2)' }}>Je vérifie automatiquement les passeports, visas et vaccins de votre famille selon votre destination. Ajoutez vos voyageurs et je m'occupe du reste. 💪
+            <div style={{ marginTop:8 }}><SpeakBtn text="Je vérifie automatiquement les passeports, visas et vaccins de votre famille selon votre destination." /></div>
           </div>
         </div>
 

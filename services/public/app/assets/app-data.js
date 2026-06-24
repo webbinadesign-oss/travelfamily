@@ -113,9 +113,9 @@ TF.BADGES = [
 ];
 
 TF.MEMORY = [
-  { ic:'briefcase', label:'Passeports', value:'5 enregistrés · valides', status:'green' },
-  { ic:'plane', label:'Aéroport favori', value:'Paris CDG', status:null },
-  { ic:'star', label:'Compagnies préférées', value:'Air France, Qatar', status:null },
-  { ic:'wallet', label:'Budget habituel', value:'≈ 3 000 € / voyage', status:null },
-  { ic:'users', label:'Voyageurs', value:'Famille Martin · 5 profils', status:null },
+  { ic:'briefcase', label:'Passeports', value:'Aucun enregistré', status:null },
+  { ic:'plane', label:'Aéroport favori', value:'À définir', status:null },
+  { ic:'star', label:'Compagnies préférées', value:'À définir', status:null },
+  { ic:'wallet', label:'Budget habituel', value:'À définir', status:null },
+  { ic:'users', label:'Voyageurs', value:'Ajoutez votre famille', status:null },
 ];

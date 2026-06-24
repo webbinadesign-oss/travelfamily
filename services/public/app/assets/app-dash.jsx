@@ -1,6 +1,10 @@
 /* TravelFamily.AI app — Dashboard, Travel memory, Gamification, Profil */
 
-function DashboardScreen({ go }) {
+function DashboardScreen({ go, openChat }) {
+  // Real trips aren't persisted yet → show a clean, inviting empty state for a
+  // genuine UX test (no fake "Famille Martin / Bali" pre-filled trip).
+  const name = (window.WebbinaAuth && window.WebbinaAuth.getEmail && window.WebbinaAuth.getEmail())
+    ? window.WebbinaAuth.getEmail().split('@')[0] : null;
   return (
     <div className="screen">
       <div style={{ padding:'16px 18px 0' }}>
@@ -8,37 +12,21 @@ function DashboardScreen({ go }) {
           <h2 style={{ fontSize:26 }}>Mes voyages</h2>
           <button className="icon-btn" onClick={()=>go('badges')} aria-label="Récompenses"><Icon n="star" size={22} style={{ color:'var(--gold)' }} /></button>
         </div>
+        {name && <div className="micro" style={{ marginTop:2, textTransform:'capitalize' }}>Bonjour {name} 👋</div>}
       </div>
 
-      {/* next trip */}
-      <div style={{ padding:'16px 18px 8px' }}>
-        <div className="micro sec-cap">Prochain départ</div>
-        <div className="card" style={{ overflow:'hidden' }}>
-          <div className="detail-hero" style={{ backgroundImage:'url(assets/photo-beach.jpg)', height:175, borderRadius:0 }}>
-            <div className="detail-hero-cap">
-              <Badge tone="coral" icon="plane">Dans 34 jours</Badge>
-              <h3 style={{ color:'#fff', fontSize:23, marginTop:6 }}>Bali, Indonésie</h3>
-              <div className="micro" style={{ color:'#fff', opacity:.9 }}>12 – 26 juillet 2026 · Famille Martin</div>
-            </div>
-          </div>
-          <div className="trip-progress">
-            {[['check','Réservé',true],['shield','Formalités',false],['briefcase','Valise',false]].map((s,i)=>(
-              <div key={i} className="tp-step" onClick={()=> s[0]==='shield' && go('formalites')}>
-                <div className="tp-ic" style={{ background: s[2]?'var(--success)':'var(--slate-100)', color: s[2]?'#fff':'var(--text-muted)' }}><Icon n={s[2]?'check':s[0]} size={16} /></div>
-                <span className="micro" style={{ fontWeight:600, color: s[2]?'var(--success)':'var(--text-2)' }}>{s[1]}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ padding:'0 14px 14px', display:'flex', gap:8 }}>
-            <button className="btn btn--secondary btn--sm" style={{ flex:1 }} onClick={()=>go('detail', TF.DESTINATIONS[0])}><Icon n="compass" size={16} />Itinéraire</button>
-            <button className="btn btn--secondary btn--sm" style={{ flex:1 }} onClick={()=>go('formalites')}><Icon n="shield" size={16} />Formalités</button>
-            <button className="btn btn--primary btn--sm" style={{ flex:1 }}><Icon n="briefcase" size={16} />Carnet</button>
-          </div>
+      {/* empty state — no trip yet */}
+      <div style={{ padding:'18px' }}>
+        <div className="card card--pad" style={{ textAlign:'center' }}>
+          <LivingWebbina size={72} state="idle" expr="happy" style={{ margin:'0 auto 6px' }} />
+          <h3 style={{ fontSize:19, marginTop:6 }}>Aucun voyage pour l'instant</h3>
+          <p className="micro" style={{ marginTop:6, lineHeight:1.5, maxWidth:'34ch', marginInline:'auto' }}>Dites-moi où vous rêvez d'aller, et je compose votre prochain séjour en famille — vols, hébergement et activités, dans votre budget.</p>
+          <button className="btn btn--primary btn--block" style={{ marginTop:14 }} onClick={()=> openChat ? openChat('home') : go('chat')}><Icon n="sparkles" size={17} />Planifier avec Webbina</button>
         </div>
       </div>
 
-      {/* travel memory */}
-      <div style={{ padding:'8px 18px' }}>
+      {/* travel memory (real, from account when available) */}
+      <div style={{ padding:'0 18px 8px' }}>
         <div className="micro sec-cap">Mémoire voyage</div>
         <div className="card card--pad" style={{ display:'flex', flexDirection:'column', gap:2 }}>
           {TF.MEMORY.map((m,i)=>(
@@ -51,21 +39,7 @@ function DashboardScreen({ go }) {
               </div>
             </div>
           ))}
-          <button className="btn btn--ghost btn--sm" style={{ marginTop:6, alignSelf:'flex-start' }}><Icon n="plus" size={16} />Ajouter un document</button>
-        </div>
-      </div>
-
-      {/* history / quotes */}
-      <div style={{ padding:'8px 18px 20px' }}>
-        <div className="micro sec-cap">Historique &amp; devis</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {[['photo-mountain.jpg','Road trip Alpes','Réservé · août 2025','green'],['photo-street.jpg','Week-end Lisbonne','Devis en cours','orange'],['photo-sunset.jpg','Sicile en famille','Idée sauvegardée',null]].map((p,i)=>(
-            <div key={i} className="card" style={{ display:'flex', gap:12, padding:10, alignItems:'center' }} onClick={()=>go('detail', TF.DESTINATIONS[1])}>
-              <div style={{ width:56, height:56, borderRadius:'var(--r-md)', backgroundImage:`url(assets/${p[0]})`, backgroundSize:'cover', flex:'none' }}></div>
-              <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:15 }}>{p[1]}</b><div className="micro row gap2" style={{ alignItems:'center', marginTop:2 }}>{p[3] && <StatusDot status={p[3]} size={8} />}{p[2]}</div></div>
-              <Icon n="chevronRight" size={18} style={{ color:'var(--text-muted)' }} />
-            </div>
-          ))}
+          <button className="btn btn--ghost btn--sm" style={{ marginTop:6, alignSelf:'flex-start' }} onClick={()=>go('formalites')}><Icon n="plus" size={16} />Ajouter un document</button>
         </div>
       </div>
     </div>
@@ -125,7 +99,7 @@ function ProfilScreen({ go }) {
       <div style={{ padding:'18px 18px 0', textAlign:'center' }}>
         <Avatar size={84} ring style={{ margin:'0 auto' }} />
         <h3 style={{ marginTop:12, fontSize:22 }}>{(window.WebbinaAuth && window.WebbinaAuth.getEmail && window.WebbinaAuth.getEmail()) ? window.WebbinaAuth.getEmail().split('@')[0] : 'Mon profil'}</h3>
-        <span className="badge badge--premium" style={{ marginTop:6 }}><Icon n="crown" size={13} />Membre Premium</span>
+        <span className="badge" style={{ marginTop:6, background:'var(--surface-sunk)', color:'var(--text-2)' }}><Icon n="user" size={13} />Compte gratuit</span>
       </div>
       <div style={{ padding:'22px 18px 20px' }}>
         <div className="card card--pad">

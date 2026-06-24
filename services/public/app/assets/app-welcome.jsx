@@ -298,8 +298,13 @@ function BonPlanDuJour({ go, openChat }) {
 
   function openDeal(deal){
     const known = (TF.DESTINATIONS||[]).find(x=>x.iata===deal.iata);
-    if(known) go('detail', { ...known, _dealDates:{ dep:deal.departureDate, ret:deal.returnDate } });
-    else openChat('home');
+    const base = known || {
+      id:'deal-'+deal.iata, iata:deal.iata, name:deal.destination, country:deal.country,
+      img:'photo-beach.jpg', tag:'Bon plan du moment', rating:4.6, kid:'Famille',
+      price:deal.pricePerPax, nights:7,
+      desc:`Une superbe idée au départ de ${originLabel} : j'ai trouvé un vol à partir de ${deal.pricePerPax} € par personne pour ${deal.destination}. Composons votre séjour ensemble !`,
+    };
+    go('detail', { ...base, _dealOrigin:origin, _dealDates:{ dep:deal.departureDate, ret:deal.returnDate } });
   }
   const fmtDate=(s)=>{ try{ return new Date(s).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }catch(e){ return s; } };
   const originLabel = (ORIGINS.find(o=>o.code===origin)||{}).label || origin;

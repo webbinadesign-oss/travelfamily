@@ -367,7 +367,7 @@ function BonPlanDuJour({ go, openChat }) {
   );
 }
 
-function HomeScreen({ go, openChat, favs, toggleFav }) {
+function HomeScreen({ go, openChat, openParcours, favs, toggleFav }) {
   return (
     <div className="screen">
       <div style={{ padding:'14px 18px 0' }}>
@@ -399,7 +399,7 @@ function HomeScreen({ go, openChat, favs, toggleFav }) {
         <p className="micro" style={{ marginBottom:14 }}>Choisissez la porte d'entrée qui vous ressemble.</p>
         <div className="parcours-grid">
           {TF.PARCOURS.map(p=>(
-            <button key={p.id} className={`parcours-card pc-${p.c}`} onClick={()=>openChat(p.id)}>
+            <button key={p.id} className={`parcours-card pc-${p.c}`} onClick={()=>openParcours(p.id)}>
               <span className="pc-num">{p.id}</span>
               <span className="pc-ic"><Icon n={p.ic} size={24} /></span>
               <span className="pc-title">{p.t}</span>
@@ -452,4 +452,96 @@ function HomeScreen({ go, openChat, favs, toggleFav }) {
   );
 }
 
-Object.assign(window, { WelcomeScreen, AuthScreen, HomeScreen });
+const PARCOURS_INTAKE = {
+  '01': { needDest:true, needDates:true,
+    title:'Vos dates et votre destination', sub:'Dites-moi où et quand, j\'optimise chaque réservation.',
+    expr:'happy' },
+  '02': { needDest:false, needDates:true,
+    title:'Vos dates de voyage', sub:'Je vous dénicherai les meilleures destinations pour ces dates.',
+    expr:'enthusiastic' },
+  '03': { needDest:true, needDates:false,
+    title:'Votre destination', sub:'Je trouverai la meilleure période — saison idéale et meilleurs prix.',
+    expr:'focused' },
+  '04': { needDest:false, needDates:false,
+    title:'Laissez-moi vous surprendre', sub:'Je vais vous dénicher une pépite. Quelques questions et c\'est parti !',
+    expr:'surprised' },
+};
+const POPULAR_DEST = ['Bali','Lisbonne','Barcelone','Sicile','Marrakech','Rome','Crète','Madère'];
+const PERIOD_OPTS = ['Juillet','Août','Toussaint','Noël','Février (ski)','Avril','Je précise…'];
+
+function ParcoursIntakeScreen({ parcours, go, openChat }) {
+  const cfg = PARCOURS_INTAKE[parcours] || PARCOURS_INTAKE['04'];
+  const [dest, setDest] = React.useState('');
+  const [period, setPeriod] = React.useState('');
+  const [exact, setExact] = React.useState('');
+
+  const periodValue = period==='Je précise…' ? exact : period;
+  const ready = (!cfg.needDest || dest.trim()) && (!cfg.needDates || periodValue.trim());
+
+  function launch(){
+    // Build a natural first message that seeds Webbina with the known criteria.
+    const bits=[];
+    if(cfg.needDest && dest.trim()) bits.push(`je veux partir à ${dest.trim()}`);
+    if(cfg.needDates && periodValue.trim()) bits.push(`pour ${periodValue.trim()}`);
+    let seed;
+    if(parcours==='02') seed = `J'ai mes dates (${periodValue.trim()}) mais pas encore de destination. Trouve-moi les meilleures idées de voyage en famille pour ces dates.`;
+    else if(parcours==='03') seed = `Je veux aller à ${dest.trim()} mais je suis flexible sur les dates. Quelle est la meilleure période (météo et prix) pour y partir en famille ?`;
+    else if(parcours==='04') seed = `Fais-moi rêver ! Surprends-moi avec une pépite de voyage en famille. Pose-moi les questions nécessaires.`;
+    else seed = `Bonjour Webbina, ${bits.join(' ')} en famille. Aide-moi à tout organiser au meilleur prix.`;
+    openChat(parcours, seed);
+  }
+
+  return (
+    <div className="screen" style={{ minHeight:'100%', display:'flex', flexDirection:'column' }}>
+      <div className="sub-head">
+        <button className="icon-btn" onClick={()=>go('home')} aria-label="Retour"><Icon n="arrowLeft" size={22} /></button>
+        <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:17 }}>Composer mon voyage</b></div>
+      </div>
+
+      <div style={{ flex:1, padding:'18px', display:'flex', flexDirection:'column', gap:18 }}>
+        <div style={{ textAlign:'center' }}>
+          <LivingWebbina size={84} state="idle" expr={cfg.expr} style={{ margin:'0 auto' }} />
+          <h2 style={{ fontSize:23, marginTop:12 }}>{cfg.title}</h2>
+          <p className="micro" style={{ marginTop:6, lineHeight:1.5, maxWidth:'36ch', marginInline:'auto' }}>{cfg.sub}</p>
+        </div>
+
+        {cfg.needDest && (
+          <div>
+            <div className="intake-label"><Icon n="mapPin" size={15} />Destination</div>
+            <input className="input" placeholder="Où rêvez-vous d'aller ?" value={dest} onChange={e=>setDest(e.target.value)} />
+            <div className="row wrap gap2" style={{ marginTop:10 }}>
+              {POPULAR_DEST.map(d=><button key={d} className={`chip ${dest===d?'chip--active':''}`} onClick={()=>setDest(d)}>{d}</button>)}
+            </div>
+          </div>
+        )}
+
+        {cfg.needDates && (
+          <div>
+            <div className="intake-label"><Icon n="calendar" size={15} />Vos dates</div>
+            <div className="row wrap gap2">
+              {PERIOD_OPTS.map(p=><button key={p} className={`chip ${period===p?'chip--active':''}`} onClick={()=>setPeriod(p)}>{p}</button>)}
+            </div>
+            {period==='Je précise…' && (
+              <input className="input" style={{ marginTop:10 }} placeholder="Ex. du 12 au 19 juillet 2026" value={exact} onChange={e=>setExact(e.target.value)} />
+            )}
+          </div>
+        )}
+
+        {!cfg.needDest && !cfg.needDates && (
+          <div className="ai-note" style={{ background:'var(--surface)', border:'1px solid var(--border)' }}>
+            <Icon n="sparkles" size={20} style={{ color:'var(--gold)' }} />
+            <div className="micro" style={{ lineHeight:1.5 }}>Je vais vous poser quelques questions (qui voyage, vos envies…) puis je composerai une surprise sur-mesure dans votre budget. ✨</div>
+          </div>
+        )}
+      </div>
+
+      <div className="answer-dock">
+        <button className="btn btn--primary btn--block" disabled={!ready} onClick={launch}>
+          Continuer avec Webbina <Icon n="arrowRight" size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { WelcomeScreen, AuthScreen, HomeScreen, ParcoursIntakeScreen });

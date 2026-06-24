@@ -69,6 +69,8 @@ function App() {
   const [trip, setTrip] = React.useState(null);
   const [booking, setBooking] = React.useState(null);
   const [chatCtx, setChatCtx] = React.useState('home');
+  const [chatSeed, setChatSeed] = React.useState(null);
+  const [parcours, setParcours] = React.useState(null);
   const [favs, setFavs] = React.useState(saved.favs || ['annecy']);
   const [anim, setAnim] = React.useState(0);
 
@@ -76,20 +78,22 @@ function App() {
 
   const go=(s,t)=>{ if(t) setTrip(t); setScreen(s); setAnim(a=>a+1); };
   const book=(payload)=>{ setBooking(payload); setScreen('booking'); setAnim(a=>a+1); };
-  const openChat=(ctx)=>{ setChatCtx(ctx); setScreen('chat'); setAnim(a=>a+1); };
+  const openChat=(ctx, seed)=>{ setChatCtx(ctx); setChatSeed(seed||null); setScreen('chat'); setAnim(a=>a+1); };
+  const openParcours=(id)=>{ setParcours(id); setScreen('parcours'); setAnim(a=>a+1); };
   const toggleFav=(id)=> setFavs(f=> f.includes(id)? f.filter(x=>x!==id):[...f,id]);
 
   const fullBleed = screen==='welcome';
   const isChat = screen==='chat';
   const tabActive = ['home','favoris','dashboard','profil'].includes(screen) ? screen : null;
-  const showChrome = !fullBleed && !isChat && screen!=='auth' && screen!=='booking';
+  const showChrome = !fullBleed && !isChat && screen!=='auth' && screen!=='booking' && screen!=='parcours';
   const showStatus = !fullBleed;
 
   let view;
   if(screen==='welcome') view=<WelcomeScreen go={go} />;
   else if(screen==='auth') view=<AuthScreen go={go} />;
-  else if(screen==='home') view=<HomeScreen go={go} openChat={openChat} favs={favs} toggleFav={toggleFav} />;
-  else if(screen==='chat') view=<ConversationScreen ctx={chatCtx} go={go} />;
+  else if(screen==='home') view=<HomeScreen go={go} openChat={openChat} openParcours={openParcours} favs={favs} toggleFav={toggleFav} />;
+  else if(screen==='parcours') view=<ParcoursIntakeScreen parcours={parcours} go={go} openChat={openChat} />;
+  else if(screen==='chat') view=<ConversationScreen ctx={chatCtx} seed={chatSeed} go={go} />;
   else if(screen==='results') view=<ResultsScreen go={go} trip={trip} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='detail') view=<DetailScreen trip={trip} go={go} book={book} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='booking') view=<BookingScreen booking={booking} go={go} />;

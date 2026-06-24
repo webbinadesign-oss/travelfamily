@@ -32,7 +32,7 @@ function webbinaOpener(ctx){
   return openers[Math.floor(Math.random()*openers.length)];
 }
 
-function ConversationScreen({ ctx, go }) {
+function ConversationScreen({ ctx, seed, go }) {
   const QS = TF.QUESTIONS;
   const [msgs, setMsgs] = React.useState([{ who:'ai', t: webbinaOpener(ctx), expr: ctx==='04'?'surprised':'happy' }]);
   const [step, setStep] = React.useState(-1);      // -1 = intro pending
@@ -228,12 +228,17 @@ function ConversationScreen({ ctx, go }) {
       try{ live = window.WebbinaBackend ? await window.WebbinaBackend.isLive() : false; }catch(e){ live=false; }
       if(cancelled) return;
       if(live){
-        // Live mode: greet once, then wait for the user. No scripted auto-flow.
+        // Live mode: if a parcours seed is present, auto-send it so Webbina
+        // immediately reacts and asks the right funnel questions. Otherwise greet.
         setPhase('chat');
-        setMsgs(m=>{
-          if(m.length) return m;
-          return [{ who:'ai', t: CONVO_INTRO[ctx]||CONVO_INTRO.home, expr:'happy' }];
-        });
+        if(seed){
+          setTimeout(()=>{ if(!cancelled) sendFreeText(seed); }, 350);
+        } else {
+          setMsgs(m=>{
+            if(m.length) return m;
+            return [{ who:'ai', t: CONVO_INTRO[ctx]||CONVO_INTRO.home, expr:'happy' }];
+          });
+        }
       } else {
         // Offline/demo: run the guided scripted funnel.
         ask(0);

@@ -37,6 +37,14 @@ export function createApp(): Application {
     res.json({ name: 'Webbina Travel AI — services', version: '0.1.0' });
   });
 
+  // Serve the bundled Prototype over HTTPS so the family demo runs in a SECURE
+  // context — required for the microphone (getUserMedia) and to avoid the
+  // content://-file errors. Drop the bundled single-file at public/app.html.
+  app.get('/app', (_req, res) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.sendFile(path.join(publicDir, 'app.html'));
+  });
+
   app.use('/api', apiRouter);
 
   // 404 + centralized error handling (must be last).

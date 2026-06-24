@@ -437,16 +437,16 @@ function HomeScreen({ go, openChat, openParcours, favs, toggleFav }) {
       </div>
 
       <div style={{ padding:'10px 18px 20px' }}>
-        <div className="card card--pad" style={{ background:'var(--grad-premium)', color:'#fff', border:'none' }}>
-          <div className="row between">
-            <div>
+        <button className="card card--pad" style={{ background:'var(--grad-premium)', color:'#fff', border:'none', width:'100%', textAlign:'left' }} onClick={()=>go('premium')}>
+          <div className="row between" style={{ alignItems:'flex-start' }}>
+            <div style={{ flex:1 }}>
               <span className="badge badge--premium" style={{ marginBottom:8 }}><Icon n="crown" size={13} />Premium</span>
-              <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:18, marginTop:8 }}>Conseiller humain dédié</div>
-              <div style={{ fontSize:14, opacity:.85, marginTop:4 }}>Un expert vérifie chaque voyage avec vous.</div>
+              <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:18, marginTop:8 }}>Webbina Premium · 4,99 €/mois</div>
+              <div style={{ fontSize:13.5, opacity:.85, marginTop:4, lineHeight:1.45 }}>Sans publicité · alertes bons plans en avant-première · commission réduite sur vos réservations.</div>
             </div>
             <Icon n="chevronRight" size={22} />
           </div>
-        </div>
+        </button>
       </div>
     </div>
   );

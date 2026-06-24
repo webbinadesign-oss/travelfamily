@@ -102,6 +102,7 @@ function App() {
   else if(screen==='badges') view=<BadgesScreen go={go} />;
   else if(screen==='favoris') view=<FavorisScreen go={go} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='profil') view=<ProfilScreen go={go} />;
+  else if(screen==='premium') view=<PremiumScreen go={go} />;
 
   return (
     <div className={`phone-screen ${isChat?'is-chat':''} ${fullBleed?'is-welcome':''}`}>

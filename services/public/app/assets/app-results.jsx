@@ -369,6 +369,34 @@ function VolsTab({ dest, book }) {
           Réserver ce vol · {chosen?chosen.price:''} €/pers <Icon n="arrowRight" size={18} />
         </button>
       ); })()}
+      <PartnerCompare dest={dest} kind="vol" />
+    </div>
+  );
+}
+
+/* Discreet partner (Travelpayouts affiliate) widget — FREE tier only, removed
+   for Premium members. Earns a commission if the user books on the partner.
+   Set window.WEBBINA_TP_MARKER (your Travelpayouts ID) to activate real links. */
+function PartnerCompare({ dest, kind }) {
+  if(TF.isPremium && TF.isPremium()) return null;
+  const marker = (typeof window!=='undefined' && window.WEBBINA_TP_MARKER) || null;
+  const name = dest && dest.name ? dest.name : 'cette destination';
+  // Travelpayouts deep-link (flights via Aviasales) — only real when marker is set.
+  const href = marker
+    ? `https://tp.media/r?marker=${marker}&trs=&p=4114&u=${encodeURIComponent('https://www.aviasales.com')}`
+    : null;
+  return (
+    <div className="partner-compare">
+      <div className="row gap2" style={{ alignItems:'center' }}>
+        <Icon n="search" size={15} style={{ color:'var(--text-muted)' }} />
+        <span className="micro" style={{ flex:1 }}>Comparer ailleurs pour {name} — offres partenaires</span>
+        <span className="partner-tag">Sponsorisé</span>
+      </div>
+      <a className="partner-link" href={href||undefined} target="_blank" rel="noopener noreferrer sponsored"
+         onClick={(e)=>{ if(!href){ e.preventDefault(); } }}>
+        Voir les offres partenaires <Icon n="arrowRight" size={14} />
+      </a>
+      <div className="micro partner-foot">Sans publicité avec <b>Premium</b>.</div>
     </div>
   );
 }

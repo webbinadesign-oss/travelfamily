@@ -56,6 +56,13 @@ TF.CONNECTORS = {
   cars:['RentalCars'],
 };
 
+/* Subscription plan (free | premium). Stored locally for the prototype;
+   in production this comes from the user's account. Free tier shows discreet
+   partner (Travelpayouts) offers; Premium removes them + reduced commission. */
+TF.plan = function(){ try{ return localStorage.getItem('tf_plan')||'free'; }catch(e){ return 'free'; } };
+TF.setPlan = function(p){ try{ localStorage.setItem('tf_plan', p); }catch(e){} };
+TF.isPremium = function(){ return TF.plan()==='premium'; };
+
 TF.FLIGHTS = [
   { id:'f1', airline:'Qatar Airways', code:'QR', stops:0, dur:'15 h 05', via:'Direct', price:742, rating:4.6, time:'10:30 → 06:35', recommended:true,
     reason:'Seulement 38 € de plus que l\'option la moins chère, mais <b>aucune escale</b> — vous évitez 7 h d\'attente avec les enfants.' },

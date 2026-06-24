@@ -127,4 +127,58 @@ function ProfilScreen({ go }) {
   );
 }
 
-Object.assign(window, { DashboardScreen, BadgesScreen, ProfilScreen });
+/* ---- Premium ---- */
+function PremiumScreen({ go }) {
+  const [plan, setPlanState] = React.useState(TF.plan());
+  const premium = plan==='premium';
+  function toggle(){
+    const next = premium ? 'free' : 'premium';
+    TF.setPlan(next); setPlanState(next);
+  }
+  const Row = ({ txt, free, prem }) => (
+    <div className="row gap3" style={{ padding:'12px 0', borderBottom:'1px solid var(--border)', alignItems:'center' }}>
+      <div style={{ flex:1, fontSize:14, fontFamily:'var(--font-display)', fontWeight:600 }}>{txt}</div>
+      <div style={{ width:54, textAlign:'center' }}>{free ? <Icon n="check" size={16} style={{ color:'var(--text-muted)' }} /> : <span className="micro" style={{ color:'var(--text-muted)' }}>—</span>}</div>
+      <div style={{ width:54, textAlign:'center' }}>{prem ? <Icon n="check" size={16} style={{ color:'var(--gold-700)' }} /> : <span className="micro" style={{ color:'var(--text-muted)' }}>—</span>}</div>
+    </div>
+  );
+  return (
+    <div className="screen" style={{ paddingBottom:30 }}>
+      <div className="sub-head">
+        <button className="icon-btn" onClick={()=>go('home')} aria-label="Retour"><Icon n="arrowLeft" size={22} /></button>
+        <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:17 }}>Webbina Premium</b></div>
+      </div>
+      <div style={{ padding:'16px 18px' }}>
+        <div className="card card--pad" style={{ background:'var(--grad-premium)', color:'#fff', border:'none', textAlign:'center' }}>
+          <Avatar size={64} ring expr="enthusiastic" style={{ margin:'0 auto 6px' }} />
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:22 }}>{premium ? 'Vous êtes Premium ✨' : 'Passez Premium'}</div>
+          <div style={{ fontSize:14, opacity:.9, marginTop:4 }}>Plus de liberté, plus d'économies, zéro publicité.</div>
+          <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:30, marginTop:12 }}>4,99 €<span style={{ fontSize:15, fontWeight:600, opacity:.8 }}>/mois</span></div>
+        </div>
+
+        <div className="card card--pad" style={{ marginTop:16 }}>
+          <div className="row gap3" style={{ paddingBottom:8, borderBottom:'2px solid var(--border)' }}>
+            <div style={{ flex:1 }}></div>
+            <div style={{ width:54, textAlign:'center' }} className="micro">Gratuit</div>
+            <div style={{ width:54, textAlign:'center', color:'var(--gold-700)', fontWeight:700 }} className="micro">Premium</div>
+          </div>
+          <Row txt="Webbina, recherche & réservation in-app" free={true} prem={true} />
+          <Row txt="Séjours clé en main (vol + hôtel + activités)" free={true} prem={true} />
+          <Row txt="Sans encart partenaire / sans pub" free={false} prem={true} />
+          <Row txt="Alertes bons plans en avant-première" free={false} prem={true} />
+          <Row txt="Commission réduite sur vos réservations" free={false} prem={true} />
+          <Row txt="Carnet famille & passeports illimités" free={false} prem={true} />
+        </div>
+
+        <button className={premium ? 'btn btn--secondary btn--block' : 'btn btn--premium btn--block'} style={{ marginTop:16 }} onClick={toggle}>
+          <Icon n="crown" size={18} />{premium ? 'Revenir au plan gratuit' : 'Passer Premium · 4,99 €/mois'}
+        </button>
+        <p className="micro" style={{ textAlign:'center', marginTop:10, lineHeight:1.5 }}>
+          {premium ? 'Merci de soutenir Webbina 💙 Résiliable à tout moment.' : 'Sans engagement, résiliable en un clic. Le gratuit reste complet — le Premium enlève simplement les encarts partenaires et réduit nos commissions.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { DashboardScreen, BadgesScreen, ProfilScreen, PremiumScreen });

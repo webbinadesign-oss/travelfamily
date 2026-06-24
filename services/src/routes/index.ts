@@ -9,11 +9,12 @@ import { memoryRouter } from './memory.routes.js';
 import { coherenceRouter } from './coherence.routes.js';
 import { bookingRouter } from './booking.routes.js';
 import { dealsRouter } from './deals.routes.js';
+import { packageRouter } from './package.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-deals-4';
+export const BUILD_VERSION = 'phase3-commission-v2';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -41,3 +42,4 @@ apiRouter.use('/memory', memoryRouter); // Supabase — Webbina Memory
 apiRouter.use('/coherence', coherenceRouter); // Itinerary timing engine (J+1, connections, hotel nights)
 apiRouter.use('/booking', bookingRouter); // Pricing/commission + Stripe payment
 apiRouter.use('/deals', dealsRouter); // Bon plan du jour — deal discovery
+apiRouter.use('/package', packageRouter); // Package intelligent — vol+hôtel+activités assemblés

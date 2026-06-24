@@ -65,6 +65,9 @@ export interface Env {
   hotelMarkupPct: number;    // marge % sur hôtels
   activityMarkupPct: number; // marge % sur activités
   packageMarkupPct: number;  // marge % sur séjour assemblé
+  carMarkupPct: number;      // marge % sur location de voiture
+  transferMarkupPct: number; // marge % sur transferts
+  trainFee: number;          // frais fixe € sur billets de train (prix transparent)
   minFee: number;            // plancher par réservation (€)
   maxMarkupPct: number;      // garde-fou : ne jamais dépasser ce % du total
 }
@@ -112,11 +115,14 @@ export const env: Env = {
 
   // Defaults: competitive + transparent. Override on Render to tune your margin.
   flightFeePerPax: num('FEE_FLIGHT_PER_PAX', 9),     // 9 € / voyageur
-  hotelMarkupPct: num('FEE_HOTEL_PCT', 0.10),        // 10 %
+  hotelMarkupPct: num('FEE_HOTEL_PCT', 0.12),        // 12 %
   activityMarkupPct: num('FEE_ACTIVITY_PCT', 0.12),  // 12 %
   packageMarkupPct: num('FEE_PACKAGE_PCT', 0.07),    // 7 %
+  carMarkupPct: num('FEE_CAR_PCT', 0.12),            // 12 %
+  transferMarkupPct: num('FEE_TRANSFER_PCT', 0.18),  // 18 %
+  trainFee: num('FEE_TRAIN', 4),                     // 4 € fixe (prix transparent)
   minFee: num('FEE_MIN', 5),                         // 5 € plancher
-  maxMarkupPct: num('FEE_MAX_PCT', 0.15),            // 15 % garde-fou
+  maxMarkupPct: num('FEE_MAX_PCT', 0.20),            // 20 % garde-fou
 } as Env;
 
 /** Which integrations are configured (used by /health and graceful 503s). */

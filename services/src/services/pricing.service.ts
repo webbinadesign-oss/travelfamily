@@ -13,7 +13,7 @@
  */
 import { env } from '../config/env.js';
 
-export type FeeCategory = 'flight' | 'hotel' | 'activity' | 'package';
+export type FeeCategory = 'flight' | 'hotel' | 'activity' | 'package' | 'car' | 'transfer' | 'train';
 
 export interface PriceBreakdown {
   base: number;        // supplier price (what we pay)
@@ -55,12 +55,27 @@ export function quote(
       fee = base * env.packageMarkupPct;
       label = `Frais de conciergerie Webbina (${Math.round(env.packageMarkupPct * 100)} %)`;
       break;
+    case 'car':
+      fee = base * env.carMarkupPct;
+      label = `Frais de service Webbina (${Math.round(env.carMarkupPct * 100)} %)`;
+      break;
+    case 'transfer':
+      fee = base * env.transferMarkupPct;
+      label = `Frais de service Webbina (${Math.round(env.transferMarkupPct * 100)} %)`;
+      break;
+    case 'train':
+      fee = env.trainFee;
+      label = `Frais de service Webbina (${env.trainFee} ${currency})`;
+      break;
   }
 
   // Floor + safety cap so we never look abusive vs competitors.
-  fee = Math.max(fee, env.minFee);
-  const cap = base * env.maxMarkupPct;
-  if (cap > 0) fee = Math.min(fee, cap);
+  // Train uses a flat fee (no floor/cap — price is transparent), others get the guard rails.
+  if (category !== 'train') {
+    fee = Math.max(fee, env.minFee);
+    const cap = base * env.maxMarkupPct;
+    if (cap > 0) fee = Math.min(fee, cap);
+  }
   fee = round2(fee);
 
   const total = round2(base + fee);
@@ -81,6 +96,9 @@ export function commissionPolicy() {
     hotelMarkupPct: env.hotelMarkupPct,
     activityMarkupPct: env.activityMarkupPct,
     packageMarkupPct: env.packageMarkupPct,
+    carMarkupPct: env.carMarkupPct,
+    transferMarkupPct: env.transferMarkupPct,
+    trainFee: env.trainFee,
     minFee: env.minFee,
     maxMarkupPct: env.maxMarkupPct,
     currency: env.stripeCurrency.toUpperCase(),

@@ -1,0 +1,128 @@
+/**
+ * Duffel — flight search (test mode supported).
+ * Uses the Offer Requests API: create an offer request with passengers + slices,
+ * then read back the returned offers. Maps Duffel's shape onto our FlightOffer
+ * type so the existing /api/flights routes & frontend keep working unchanged.
+ * Docs: https://duffel.com/docs/api
+ */
+import { env } from '../config/env.js';
+import { ApiError } from '../lib/ApiError.js';
+import { httpRequest } from '../lib/httpClient.js';
+import type { FlightSearchQuery, FlightOffer, FlightSegment } from '../types/index.js';
+
+const BASE = 'https://api.duffel.com';
+
+function assertConfigured(): void {
+  if (!env.duffelApiKey) {
+    throw ApiError.serviceUnavailable(
+      'duffel_not_configured',
+      'Duffel key is not set. Define DUFFEL_API_KEY.',
+    );
+  }
+}
+
+function headers(): Record<string, string> {
+  return {
+    Authorization: `Bearer ${env.duffelApiKey}`,
+    'Duffel-Version': env.duffelVersion || 'v2',
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+}
+
+/* ── Raw Duffel shapes (only the fields we use) ───────────── */
+interface RawSegment {
+  origin: { iata_code: string };
+  destination: { iata_code: string };
+  departing_at: string;
+  arriving_at: string;
+  duration?: string;
+  operating_carrier?: { iata_code?: string };
+  marketing_carrier?: { iata_code?: string };
+  marketing_carrier_flight_number?: string;
+}
+interface RawSlice {
+  duration?: string;
+  segments: RawSegment[];
+}
+interface RawOffer {
+  id: string;
+  total_amount: string;
+  total_currency: string;
+  slices: RawSlice[];
+}
+interface OfferRequestResponse {
+  data: { offers?: RawOffer[]; id: string };
+}
+
+function mapOffer(raw: RawOffer): FlightOffer {
+  const segments: FlightSegment[] = raw.slices.flatMap((sl) =>
+    sl.segments.map((s) => {
+      const carrier = s.marketing_carrier?.iata_code || s.operating_carrier?.iata_code || '';
+      return {
+        from: s.origin.iata_code,
+        to: s.destination.iata_code,
+        departureAt: s.departing_at,
+        arrivalAt: s.arriving_at,
+        carrierCode: carrier,
+        flightNumber: `${carrier}${s.marketing_carrier_flight_number || ''}`,
+        durationIso: s.duration || '',
+      };
+    }),
+  );
+  // stops across all slices = total segments minus number of slices
+  const stops = Math.max(0, segments.length - raw.slices.length);
+  return {
+    id: raw.id,
+    oneWay: raw.slices.length <= 1,
+    price: { amount: Number(raw.total_amount), currency: raw.total_currency },
+    stops,
+    durationIso: raw.slices[0]?.duration || '',
+    segments,
+  };
+}
+
+export const duffelService = {
+  async searchFlights(q: FlightSearchQuery): Promise<FlightOffer[]> {
+    assertConfigured();
+
+    // Build passengers: adults + children (+ infants). Duffel uses age for kids.
+    const passengers: Array<{ type?: string; age?: number }> = [];
+    for (let i = 0; i < q.adults; i++) passengers.push({ type: 'adult' });
+    for (let i = 0; i < (q.children ?? 0); i++) passengers.push({ age: 8 });
+    for (let i = 0; i < (q.infants ?? 0); i++) passengers.push({ age: 1 });
+
+    // Slices: outbound (+ return if provided).
+    const slices: Array<{ origin: string; destination: string; departure_date: string }> = [
+      { origin: q.origin, destination: q.destination, departure_date: q.departureDate },
+    ];
+    if (q.returnDate) {
+      slices.push({ origin: q.destination, destination: q.origin, departure_date: q.returnDate });
+    }
+
+    const body = {
+      data: {
+        cabin_class: (q.travelClass || 'economy').toLowerCase(),
+        passengers,
+        slices,
+      },
+    };
+
+    // return_offers=true gives us offers inline (simpler for a single call).
+    const res = await httpRequest<OfferRequestResponse>(
+      `${BASE}/air/offer_requests?return_offers=true&supplier_timeout=15000`,
+      {
+        method: 'POST',
+        provider: 'duffel',
+        timeoutMs: 30_000,
+        headers: headers(),
+        body,
+      },
+    );
+
+    const offers = res.data.offers ?? [];
+    // Cheapest first, capped to the requested max.
+    const mapped = offers.map(mapOffer).sort((a, b) => a.price.amount - b.price.amount);
+    return mapped.slice(0, q.maxResults ?? 20);
+  },
+};

@@ -53,10 +53,10 @@ function extractText(data: GeminiResponse): string {
 function candidateModels(): string[] {
   const list = [
     env.geminiModel,
+    'gemini-3.5-flash',
+    'gemini-3-flash',
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
     'gemini-flash-latest',
-    'gemini-1.5-flash',
   ].filter(Boolean);
   return [...new Set(list)];
 }

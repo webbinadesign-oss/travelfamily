@@ -56,7 +56,10 @@ function ResultsScreen({ go, trip, favs, toggleFav }) {
 const TABS_DETAIL = [['apercu','Aperçu'],['vols','Vols'],['hotels','Hôtels'],['surplace','Sur place'],['jour','Jour par jour']];
 
 function DetailScreen({ trip, go, book, favs, toggleFav }) {
-  const d = trip && trip.id ? trip : TF.DESTINATIONS[0];
+  const d0 = trip && trip.id ? trip : TF.DESTINATIONS[0];
+  const _paxN = d0._pax || 2;
+  const _priceN = Number(d0.price) || (Number(d0._total)? Math.round(Number(d0._total)/_paxN) : 0);
+  const d = (!Number(d0.price) && _priceN) ? { ...d0, price:_priceN } : d0;
   const [tab, setTab] = React.useState('apercu');
   const fav = favs.includes(d.id);
   return (
@@ -95,7 +98,7 @@ function DetailScreen({ trip, go, book, favs, toggleFav }) {
       </div>
 
       <div className="sticky-cta">
-        <div><div className="micro">Estimation · {(d._pax||5)} pers.</div><b style={{ fontFamily:'var(--font-display)', fontSize:20 }}>{(d.price*(d._pax||5)).toLocaleString('fr-FR')} €</b></div>
+        <div><div className="micro">Estimation · {(d._pax||2)} pers.</div><b style={{ fontFamily:'var(--font-display)', fontSize:20 }}>{d.price?(d.price*(d._pax||2)).toLocaleString('fr-FR')+' €':'Sur devis'}</b></div>
         <button className="btn btn--cta" onClick={()=>setTab('apercu')}>Composer le séjour<Icon n="arrowRight" size={20} /></button>
       </div>
     </div>
@@ -303,6 +306,9 @@ function VolsTab({ dest, book }) {
   const [flights, setFlights] = React.useState(TF.FLIGHTS);
   const [rawBest, setRawBest] = React.useState(null);
   const [note, setNote] = React.useState(null);
+  const origin = (dest && dest._dealOrigin) || 'CDG';
+  const ORIGIN_LABELS = { CDG:'Paris CDG', ORY:'Paris Orly', MPL:'Montpellier', BCN:'Barcelone', MRS:'Marseille', LYS:'Lyon', NCE:'Nice', TLS:'Toulouse', BOD:'Bordeaux', NTE:'Nantes', GVA:'Genève', BRU:'Bruxelles', LUX:'Luxembourg' };
+  const originLabel = ORIGIN_LABELS[origin] || origin;
 
   React.useEffect(()=>{
     let cancelled=false;
@@ -315,7 +321,7 @@ function VolsTab({ dest, book }) {
       // depart ~6 weeks out (test-data friendly), 2 adults + 2 children
       const dep=new Date(); dep.setDate(dep.getDate()+42);
       try{
-        const r = await window.WebbinaBackend.searchFlights({ origin:'CDG', destination:iata, departureDate:dep.toISOString().slice(0,10), adults:2, children:2, maxResults:5 });
+        const r = await window.WebbinaBackend.searchFlights({ origin, destination:iata, departureDate:dep.toISOString().slice(0,10), adults:2, children:2, maxResults:5 });
         if(cancelled) return;
         const items=(r.items||[]).map(offerToCard);
         if(items.length){ items[0].recommended=true; items[0].reason='La meilleure combinaison prix / escales que j\'ai trouvée en direct pour vos dates. ✨'; setFlights(items); setRawBest((r.items||[])[0]||null); setState('live'); }
@@ -327,6 +333,10 @@ function VolsTab({ dest, book }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:12, paddingBottom:8 }}>
+      <div className="vols-route">
+        <Icon n="plane" size={15} />
+        <span><b>{originLabel}</b> <span style={{ opacity:.6 }}>({origin})</span> → <b>{dest&&dest.name}</b>{dest&&dest.iata?<span style={{ opacity:.6 }}> ({dest.iata})</span>:null}</span>
+      </div>
       <div className="compare-head">
         {state==='live'
           ? <span className="row gap2" style={{ color:'var(--success)', fontWeight:700 }}><Icon n="check" size={14} />Vols réels en direct · Duffel</span>
@@ -458,6 +468,12 @@ function HotelsTab({ dest }) {
         </div>
       )}
       {note && <div className="micro" style={{ color:'var(--text-muted)', padding:'0 2px' }}>{note}</div>}
+      {state!=='live' && state!=='loading' && (
+        <div className="ai-note" style={{ background:'var(--surface)', border:'1px solid var(--warning-border)' }}>
+          <Icon n="info" size={16} style={{ color:'var(--warning)', flex:'none', marginTop:2 }} />
+          <div className="micro" style={{ color:'var(--text-2)', lineHeight:1.45 }}>Ces hébergements sont des <b>exemples illustratifs</b> : notre partenaire hôtelier (réservation et tarifs nets) n'est pas encore connecté. Les vrais prix réservables arrivent très bientôt. 💙</div>
+        </div>
+      )}
       {hotels.map(h=>(
         <div key={h.id} className={`compare-card ${sel===h.id?'sel':''} ${h.recommended?'reco':''}`} onClick={()=>setSel(h.id)}>
           {h.recommended && <div className="reco-tag"><Icon n="sparkles" size={12} />Recommandé par Webbina</div>}

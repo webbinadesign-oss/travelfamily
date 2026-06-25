@@ -34,7 +34,8 @@ function webbinaOpener(ctx){
 
 function ConversationScreen({ ctx, seed, go }) {
   const QS = TF.QUESTIONS;
-  const [msgs, setMsgs] = React.useState([{ who:'ai', t: webbinaOpener(ctx), expr: ctx==='04'?'surprised':'happy' }]);
+  const _restored = (window.__TF_CONVO && window.__TF_CONVO.ctx===ctx && (window.__TF_CONVO.msgs||[]).length>1);
+  const [msgs, setMsgs] = React.useState(()=> _restored ? window.__TF_CONVO.msgs : [{ who:'ai', t: webbinaOpener(ctx), expr: ctx==='04'?'surprised':'happy' }]);
   const [step, setStep] = React.useState(-1);      // -1 = intro pending
   const [typing, setTyping] = React.useState(false);
   const [phase, setPhase] = React.useState('idle'); // idle | ask | searching | done
@@ -45,13 +46,13 @@ function ConversationScreen({ ctx, seed, go }) {
   const [speakText, setSpeakText] = React.useState('');  // the line being spoken
   const [speakExpr, setSpeakExpr] = React.useState('happy');
   const scroller = React.useRef(null);
-  const spokenRef = React.useRef(-1);
+  const spokenRef = React.useRef(_restored ? (window.__TF_CONVO.msgs.length-1) : -1);
   // ── Free-text live chat (real Webbina via backend) ──
   const [liveOn, setLiveOn] = React.useState(false);
   const [input, setInput] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [listening, setListening] = React.useState(false);
-  const histRef = React.useRef([]); // {role, content} for the real brain
+  const histRef = React.useRef(_restored ? (window.__TF_CONVO.hist||[]).slice() : []); // {role, content} for the real brain
   const recRef = React.useRef(null);
 
   React.useEffect(()=>{ if(window.WebbinaBackend){ window.WebbinaBackend.isLive().then(setLiveOn); } }, []);
@@ -285,6 +286,7 @@ function ConversationScreen({ ctx, seed, go }) {
   // the scripted guided flow (which would "talk on its own" over the user).
   React.useEffect(()=>{
     let cancelled=false;
+    if(_restored){ setPhase('chat'); return ()=>{ cancelled=true; }; }
     (async()=>{
       let live=false;
       try{ live = window.WebbinaBackend ? await window.WebbinaBackend.isLive() : false; }catch(e){ live=false; }
@@ -308,6 +310,9 @@ function ConversationScreen({ ctx, seed, go }) {
     })();
     return ()=>{ cancelled=true; };
   }, []);
+
+  // Persist the conversation so returning to the chat doesn't replay the opener.
+  React.useEffect(()=>{ try{ window.__TF_CONVO = { ctx, msgs, hist: histRef.current }; }catch(e){} }, [msgs]);
 
   function ask(i) {
     setTyping(true);
@@ -377,7 +382,7 @@ function ConversationScreen({ ctx, seed, go }) {
               : m.who==='ai' ? <MsgAI key={i} anim expr={m.expr}><span dangerouslySetInnerHTML={{__html:m.t}} /></MsgAI>
               : m.who==='user' ? <MsgUser key={i}>{m.t}</MsgUser>
               : m.who==='flights' ? <FlightBubble key={i} dest={m.dest} items={m.items} onOpen={()=>go('detail', m.dest)} />
-              : m.who==='devis' ? <DevisBubble key={i} m={m} onBook={()=>book && book({ dest:m.dest, package:m.pkg, flight:{ airline:'Séjour '+(m.dest&&m.dest.name||''), code:'★', price:m.pkg&&m.pkg.pricing?Math.round(m.pkg.pricing.total/((m.adults||0)+(m.children||0)||1)):0, via:(m.pkg&&m.pkg.nights||7)+' nuits', dur:'Vol + hébergement + activités', time:'', _kids:m.children, _adults:m.adults } })} onDetail={()=>go('detail', { ...(m.dest||{}), _pax:(m.adults||0)+(m.children||0), _kids:m.children, _budget:m.budget })} />
+              : m.who==='devis' ? <DevisBubble key={i} m={m} onBook={()=>book && book({ dest:m.dest, package:m.pkg, flight:{ airline:'Séjour '+(m.dest&&m.dest.name||''), code:'★', price:m.pkg&&m.pkg.pricing?Math.round(m.pkg.pricing.total/((m.adults||0)+(m.children||0)||1)):0, via:(m.pkg&&m.pkg.nights||7)+' nuits', dur:'Vol + hébergement + activités', time:'', _kids:m.children, _adults:m.adults } })} onDetail={()=>go('detail', { ...(m.dest||{}), price:(m.dest&&m.dest.price) || (m.pkg&&m.pkg.pricing?Math.round(m.pkg.pricing.total/((m.adults||0)+(m.children||0)||1)):0), nights:(m.pkg&&m.pkg.nights)||(m.dest&&m.dest.nights)||7, _dealOrigin:(m.pkg&&m.pkg.origin)||'CDG', _pax:(m.adults||0)+(m.children||0), _kids:m.children, _budget:m.budget }) } />
               : <SearchCard key={i} />
             ))}
           </React.Fragment>);

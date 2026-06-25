@@ -415,8 +415,8 @@ function HomeScreen({ go, openChat, openParcours, favs, toggleFav }) {
         <button className="card card--hover" onClick={()=>go('formalites')} style={{ width:'100%', textAlign:'left', padding:16, display:'flex', alignItems:'center', gap:14, border:'1px solid var(--border)' }}>
           <div style={{ width:48, height:48, borderRadius:14, background:'var(--warning-bg)', display:'grid', placeItems:'center', flex:'none' }}><Icon n="shield" size={24} style={{ color:'var(--warning)' }} /></div>
           <div style={{ flex:1 }}>
-            <div className="row gap2" style={{ alignItems:'center' }}><b style={{ fontFamily:'var(--font-display)', fontSize:15.5 }}>Formalités Bali</b><StatusDot status="orange" size={9} /></div>
-            <div className="micro">1 action requise avant de réserver</div>
+            <div className="row gap2" style={{ alignItems:'center' }}><b style={{ fontFamily:'var(--font-display)', fontSize:15.5, color:'var(--text)' }}>Formalités d'entrée</b><StatusDot status="orange" size={9} /></div>
+            <div className="micro">Visa, passeports, vaccins — vérifiés pour votre famille</div>
           </div>
           <Icon n="chevronRight" size={20} style={{ color:'var(--text-muted)' }} />
         </button>

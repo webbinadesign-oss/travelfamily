@@ -184,7 +184,11 @@ function SurPlaceTab({ dest }) {
 function PackageCard({ dest, book }) {
   const [state, setState] = React.useState('idle'); // idle|loading|ready|error
   const [pkg, setPkg] = React.useState(null);
-  const pax = dest._pax || 4;
+  const initKids = dest._kids!=null ? dest._kids : 0;
+  const initPax = dest._pax || 2;
+  const [adults, setAdults] = React.useState(Math.max(1, initPax-initKids));
+  const [children, setChildren] = React.useState(Math.max(0, initKids));
+  const [nights, setNights] = React.useState(dest.nights||7);
   const budget = dest._budget || null;
 
   async function build(){
@@ -192,14 +196,14 @@ function PackageCard({ dest, book }) {
     setState('loading');
     try{
       const dep=new Date(); dep.setDate(dep.getDate()+42);
-      const ret=new Date(dep); ret.setDate(ret.getDate()+(dest.nights||7));
+      const ret=new Date(dep); ret.setDate(ret.getDate()+nights);
       const dd = dest._dealDates || {};
       const p = await window.WebbinaBackend.buildPackage({
-        origin:'CDG', destinationIata:dest.iata||'DPS', destinationName:dest.name,
+        origin: dest._dealOrigin||'CDG', destinationIata:dest.iata||'DPS', destinationName:dest.name,
         lat:dest.lat, lng:dest.lng,
         departureDate: dd.dep || dep.toISOString().slice(0,10),
         returnDate: dd.ret || ret.toISOString().slice(0,10),
-        adults: Math.max(1, pax-(dest._kids||2)), children: dest._kids||2,
+        adults: Math.max(1, adults), children: Math.max(0, children),
         budget: budget||undefined,
       });
       setPkg(p); setState('ready');
@@ -220,8 +224,34 @@ function PackageCard({ dest, book }) {
       {state==='idle' && (
         <React.Fragment>
           <WebbinaReco>{`Laissez-moi tout organiser pour ${dest.name} : je combine le vol, l'hébergement et les activités en un seul séjour, dans votre budget. ✨`}</WebbinaReco>
+          <div className="pkg-pax">
+            <div className="pkg-pax-row">
+              <span>Adultes</span>
+              <div className="pkg-step">
+                <button type="button" onClick={()=>setAdults(a=>Math.max(1,a-1))} aria-label="Moins d'adultes">−</button>
+                <b>{adults}</b>
+                <button type="button" onClick={()=>setAdults(a=>Math.min(9,a+1))} aria-label="Plus d'adultes">+</button>
+              </div>
+            </div>
+            <div className="pkg-pax-row">
+              <span>Enfants</span>
+              <div className="pkg-step">
+                <button type="button" onClick={()=>setChildren(c=>Math.max(0,c-1))} aria-label="Moins d'enfants">−</button>
+                <b>{children}</b>
+                <button type="button" onClick={()=>setChildren(c=>Math.min(9,c+1))} aria-label="Plus d'enfants">+</button>
+              </div>
+            </div>
+            <div className="pkg-pax-row">
+              <span>Nuits</span>
+              <div className="pkg-step">
+                <button type="button" onClick={()=>setNights(n=>Math.max(1,n-1))} aria-label="Moins de nuits">−</button>
+                <b>{nights}</b>
+                <button type="button" onClick={()=>setNights(n=>Math.min(30,n+1))} aria-label="Plus de nuits">+</button>
+              </div>
+            </div>
+          </div>
           <button className="btn btn--primary btn--block" style={{ marginTop:12 }} onClick={build}>
-            Composer mon séjour <Icon n="sparkles" size={17} />
+            Composer mon séjour · {adults+children} voyageur{adults+children>1?'s':''} <Icon n="sparkles" size={17} />
           </button>
         </React.Fragment>
       )}

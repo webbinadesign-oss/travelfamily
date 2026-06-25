@@ -181,10 +181,10 @@ function WelcomeScreen({ go }) {
           <span>Où souhaitez-vous partir aujourd'hui&nbsp;? ✨</span>
           {waiting && <span className="listening"><span className="listening-dots"><i></i><i></i><i></i></span>Webbina vous écoute…</span>}
         </div>
-        <button className="btn btn--cta btn--lg" onClick={(e)=>{ e.stopPropagation(); go('home'); }} style={{ width:'100%', marginTop:18 }}>
-          Commencer le voyage <Icon n="arrowRight" size={20} />
+        <button className="btn btn--cta btn--lg" onClick={(e)=>{ e.stopPropagation(); try{ localStorage.setItem('tf_intro_seen','1'); }catch(err){} go('auth'); }} style={{ width:'100%', marginTop:18 }}>
+          Créer mon compte <Icon n="arrowRight" size={20} />
         </button>
-        <button className="welcome-link" onClick={(e)=>{ e.stopPropagation(); go('auth'); }}>J'ai déjà un compte</button>
+        <button className="welcome-link" onClick={(e)=>{ e.stopPropagation(); try{ localStorage.setItem('tf_intro_seen','1'); }catch(err){} go('auth'); }}>J'ai déjà un compte</button>
       </div>
     </div>
   );
@@ -256,6 +256,107 @@ function AuthScreen({ go }) {
         </button>
         <p className="micro" style={{ textAlign:'center', marginTop:12 }}>En continuant, vous acceptez nos conditions et notre politique de confidentialité.</p>
       </div>
+    </div>
+  );
+}
+
+function Carousel({ children, auto=true, interval=4200 }){
+  const ref = React.useRef(null);
+  const [idx, setIdx] = React.useState(0);
+  const [n, setN] = React.useState(0);
+  const pausedRef = React.useRef(false);
+  const resumeT = React.useRef(0);
+
+  React.useEffect(()=>{ const el=ref.current; if(el) setN(el.children.length); }, [children]);
+
+  const tweenRef = React.useRef(0);
+  const targetFor = React.useCallback((el, child)=>{
+    // center the card in the viewport; side-padding lets the first/last card center too
+    const raw = (child.offsetLeft - el.offsetLeft) - (el.clientWidth - child.clientWidth)/2;
+    return Math.max(0, Math.min(el.scrollWidth - el.clientWidth, raw));
+  }, []);
+  const scrollToIdx = React.useCallback((i)=>{
+    const el = ref.current; if(!el || !el.children.length) return;
+    const len = el.children.length;
+    const c = ((i % len) + len) % len;
+    const child = el.children[c];
+    if(!child) return;
+    const to = targetFor(el, child);
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    cancelAnimationFrame(tweenRef.current);
+    if(reduce){ el.scrollLeft = to; return; }
+    // rAF tween — native smooth scrollTo is unreliable across engines, so we
+    // drive scrollLeft directly over ~360ms with an ease-out curve.
+    const from = el.scrollLeft, dist = to - from, t0 = performance.now(), dur = 360;
+    const step = (now)=>{
+      const p = Math.min(1, (now - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      el.scrollLeft = from + dist * e;
+      if(p < 1) tweenRef.current = requestAnimationFrame(step);
+    };
+    tweenRef.current = requestAnimationFrame(step);
+  }, []);
+  React.useEffect(()=>()=>cancelAnimationFrame(tweenRef.current), []);
+
+  React.useEffect(()=>{
+    const el = ref.current; if(!el) return;
+    let raf=0;
+    const onScroll=()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{
+      // active = card whose centre is closest to the viewport centre
+      const mid = el.scrollLeft + el.clientWidth/2;
+      let bi=0, bd=Infinity;
+      for(let i=0;i<el.children.length;i++){
+        const ch=el.children[i];
+        const cc=(ch.offsetLeft-el.offsetLeft)+ch.clientWidth/2;
+        const d=Math.abs(cc-mid);
+        if(d<bd){ bd=d; bi=i; }
+      }
+      setIdx(bi);
+    }); };
+    el.addEventListener('scroll', onScroll, { passive:true });
+    return ()=>{ el.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
+  }, []);
+
+  // globe-like focus handled in render via cloneElement (React-owned, survives re-renders)
+
+  const pause=()=>{ pausedRef.current=true; clearTimeout(resumeT.current); };
+  const resumeLater=()=>{ clearTimeout(resumeT.current); resumeT.current=setTimeout(()=>{ pausedRef.current=false; }, 6000); };
+  React.useEffect(()=>()=>clearTimeout(resumeT.current), []);
+
+  React.useEffect(()=>{
+    if(!auto) return;
+    const t=setInterval(()=>{
+      if(pausedRef.current) return;
+      const el=ref.current; if(!el) return;
+      const len=el.children.length; if(len<=1) return;
+      scrollToIdx((idx+1)%len);
+    }, interval);
+    return ()=>clearInterval(t);
+  }, [auto, interval, idx, scrollToIdx]);
+
+  return (
+    <div className="carousel"
+      onMouseEnter={pause} onMouseLeave={()=>{ pausedRef.current=false; }}
+      onTouchStart={pause} onTouchEnd={resumeLater}>
+      <button className="carousel-arrow carousel-arrow--prev" disabled={n<=1} aria-label="Précédent"
+        onClick={()=>{ pause(); resumeLater(); scrollToIdx(idx-1); }}><Icon n="chevronLeft" size={20} /></button>
+      <div className="hscroll" ref={ref}>
+        {React.Children.map(children, (ch,i)=>{
+          if(!React.isValidElement(ch)) return ch;
+          const cls = ((ch.props.className||'') + (i===idx?' is-center':'')).trim();
+          return React.cloneElement(ch, { className: cls });
+        })}
+      </div>
+      <button className="carousel-arrow carousel-arrow--next" disabled={n<=1} aria-label="Suivant"
+        onClick={()=>{ pause(); resumeLater(); scrollToIdx(idx+1); }}><Icon n="chevronRight" size={20} /></button>
+      {n>1 && (
+        <div className="carousel-dots">
+          {Array.from({length:n}).map((_,i)=>(
+            <button key={i} className={`carousel-dot ${i===idx?'is-active':''}`} aria-label={`Élément ${i+1}`}
+              onClick={()=>{ pause(); resumeLater(); scrollToIdx(i); }}></button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -336,7 +437,7 @@ function BonPlanDuJour({ go, openChat }) {
       {state==='loading' && <div className="micro" style={{ padding:'0 18px 8px', color:'var(--text-muted)' }}>Je scanne les vrais prix au départ de {originLabel}… 🔎</div>}
       {state==='live' && (
         <React.Fragment>
-          <div className="hscroll">
+          <Carousel>
             {deals.map((d,i)=>(
               <button key={d.iata+i} className={`bonplan-card ${d.hot?'is-hot':''}`} onClick={()=>openDeal(d)}>
                 {d.hot && <span className="bonplan-disc"><Icon n="zap" size={11} />Top prix</span>}
@@ -344,6 +445,7 @@ function BonPlanDuJour({ go, openChat }) {
                   <span className="bonplan-dest">{d.destination}</span>
                   <span className="bonplan-country">{d.country}</span>
                 </div>
+                <span className="bonplan-type"><Icon n="plane" size={12} /> Vol aller seul</span>
                 <div className="bonplan-mid">
                   <span className="micro"><Icon n="calendar" size={12} /> Départ {fmtDate(d.departureDate)}</span>
                   <span className="micro">{d.stops===0?'Direct':d.stops+' escale'+(d.stops>1?'s':'')}</span>
@@ -351,13 +453,13 @@ function BonPlanDuJour({ go, openChat }) {
                 <div className="bonplan-bot">
                   <div>
                     <b className="bonplan-price">{d.pricePerPax} €</b>
-                    <span className="micro" style={{ display:'block', marginTop:1 }}>l'aller / pers.</span>
+                    <span className="micro" style={{ display:'block', marginTop:1 }}>le vol aller / pers.</span>
                   </div>
                   <span className="bonplan-go"><Icon n="arrowRight" size={16} /></span>
                 </div>
               </button>
             ))}
-          </div>
+          </Carousel>
           <div className="micro" style={{ padding:'4px 18px 0', color:'var(--text-muted)', lineHeight:1.45 }}>
             <Icon n="info" size={11} /> Prix réels constatés à l'instant via nos partenaires. Ils peuvent évoluer et ne sont garantis qu'au moment de la réservation.
           </div>
@@ -367,7 +469,7 @@ function BonPlanDuJour({ go, openChat }) {
   );
 }
 
-function HomeScreen({ go, openChat, openParcours, favs, toggleFav }) {
+function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav }) {
   return (
     <div className="screen">
       <div style={{ padding:'14px 18px 0' }}>
@@ -379,7 +481,10 @@ function HomeScreen({ go, openChat, openParcours, favs, toggleFav }) {
               <b style={{ fontFamily:'var(--font-display)', fontSize:18 }}>{(window.WebbinaAuth && window.WebbinaAuth.getEmail && window.WebbinaAuth.getEmail()) ? (window.WebbinaAuth.getEmail().split('@')[0]) : 'Votre voyage commence ici'}</b>
             </div>
           </div>
-          <button className="icon-btn" aria-label="Notifications" onClick={()=>go('formalites')}><Icon n="bell" size={22} /><span className="dot"></span></button>
+          <div className="row gap2" style={{ alignItems:'center' }}>
+            <ThemeToggle />
+            <button className="icon-btn" aria-label="Notifications" onClick={()=>go('formalites')}><Icon n="bell" size={22} /><span className="dot"></span></button>
+          </div>
         </div>
 
         <div style={{ margin:'20px 0 6px' }}>
@@ -392,48 +497,33 @@ function HomeScreen({ go, openChat, openParcours, favs, toggleFav }) {
         </button>
       </div>
 
+      <GlobeParcours openParcours={openParcours} />
+
+      <div className="home-sep"></div>
+
+      <ReserverHub openReserver={openReserver} openChat={openChat} />
+
+      <div className="home-sep"></div>
+
       <BonPlanDuJour go={go} openChat={openChat} />
 
-      <div style={{ padding:'24px 18px 6px' }}>
-        <h3 style={{ fontSize:19, marginBottom:4 }}>Par où commencer&nbsp;?</h3>
-        <p className="micro" style={{ marginBottom:14 }}>Choisissez la porte d'entrée qui vous ressemble.</p>
-        <div className="parcours-grid">
-          {TF.PARCOURS.map(p=>(
-            <button key={p.id} className={`parcours-card pc-${p.c}`} onClick={()=>openParcours(p.id)}>
-              <span className="pc-num">{p.id}</span>
-              <span className="pc-ic"><Icon n={p.ic} size={24} /></span>
-              <span className="pc-title">{p.t}</span>
-              <span className="pc-desc">{p.d}</span>
-              <span className="pc-go"><Icon n="arrowRight" size={18} /></span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* formalités teaser */}
-      <div style={{ padding:'12px 18px 6px' }}>
-        <button className="card card--hover" onClick={()=>go('formalites')} style={{ width:'100%', textAlign:'left', padding:16, display:'flex', alignItems:'center', gap:14, border:'1px solid var(--border)' }}>
-          <div style={{ width:48, height:48, borderRadius:14, background:'var(--warning-bg)', display:'grid', placeItems:'center', flex:'none' }}><Icon n="shield" size={24} style={{ color:'var(--warning)' }} /></div>
-          <div style={{ flex:1 }}>
-            <div className="row gap2" style={{ alignItems:'center' }}><b style={{ fontFamily:'var(--font-display)', fontSize:15.5, color:'var(--text)' }}>Formalités d'entrée</b><StatusDot status="orange" size={9} /></div>
-            <div className="micro">Visa, passeports, vaccins — vérifiés pour votre famille</div>
-          </div>
-          <Icon n="chevronRight" size={20} style={{ color:'var(--text-muted)' }} />
-        </button>
-      </div>
+      <div className="home-sep"></div>
 
       <div style={{ padding:'18px 0 6px' }}>
         <div className="row between" style={{ padding:'0 18px', marginBottom:12 }}>
-          <h3 style={{ fontSize:19 }}>Inspirations pour vous</h3>
-          <span className="micro" style={{ color:'var(--ocean-700)', fontWeight:700 }}>Tout voir</span>
+          <div>
+            <div className="res-eyebrow"><Icon n="heart" size={13} />Pour vous</div>
+            <h3 style={{ fontSize:19, marginTop:6 }}>Inspirations</h3>
+          </div>
+          <span className="micro" style={{ color:'var(--ocean-700)', fontWeight:700, alignSelf:'flex-end' }}>Tout voir</span>
         </div>
-        <div className="hscroll">
+        <Carousel>
           {TF.DESTINATIONS.map(d=>(
             <div key={d.id} style={{ width:230, flex:'none' }}>
               <DestCard d={d} onOpen={()=>go('detail', d)} fav={favs.includes(d.id)} onFav={toggleFav} />
             </div>
           ))}
-        </div>
+        </Carousel>
       </div>
 
       <div style={{ padding:'10px 18px 20px' }}>

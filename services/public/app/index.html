@@ -41,9 +41,72 @@
   .is-chat .scroll-area, .chat.screen{ padding-bottom:0; }
   .chat.screen{ display:flex; flex-direction:column; height:100%; min-height:100%; animation:none; }
 
-  .hscroll{ display:flex; gap:14px; overflow-x:auto; padding:2px 18px 10px; scroll-snap-type:x mandatory; }
+  .hscroll{ display:flex; gap:14px; overflow-x:auto; padding:2px 18px 10px; scroll-snap-type:x mandatory; scroll-padding-left:18px; }
   .hscroll::-webkit-scrollbar{ height:0; }
   .hscroll > *{ scroll-snap-align:start; }
+
+  /* ===== Carrousel (cartes qui défilent) ===== */
+  .carousel{ position:relative; }
+  .modes-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+  /* ===== Réserver directement (hub de cartes) ===== */
+  .res-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .res-card{ display:flex; align-items:center; gap:12px; padding:14px; border:1px solid var(--border); border-radius:var(--r-lg);
+    background:var(--surface); cursor:pointer; text-align:left; box-shadow:var(--sh-sm);
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .res-card:hover{ transform:translateY(-2px); box-shadow:var(--sh-md); border-color:var(--ocean); }
+  .res-card:last-child:nth-child(odd){ grid-column:1 / -1; }
+  .res-meta{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .res-meta b{ font-family:var(--font-display); font-size:14.5px; color:var(--text); line-height:1.15; }
+  .res-sub{ font-size:11.5px; color:var(--text-2); line-height:1.25; }
+  .res-ic{ width:44px; height:44px; border-radius:13px; display:grid; place-items:center; flex:none; }
+  .res-ic.u-ocean{ background:color-mix(in srgb,var(--ocean) 14%,var(--surface)); color:var(--ocean-700); }
+  .res-ic.u-turq{ background:color-mix(in srgb,var(--turq,#19B6C9) 16%,var(--surface)); color:var(--turq-700,#0E7A88); }
+  .res-ic.u-gold{ background:color-mix(in srgb,var(--gold,#E0A93B) 18%,var(--surface)); color:var(--gold-700,#9A6B12); }
+  .res-ic.u-coral{ background:color-mix(in srgb,var(--coral,#F2724B) 16%,var(--surface)); color:var(--coral-700,#C0431F); }
+  .res-form{ display:flex; flex-direction:column; gap:12px; }
+  .res-form .row.gap3{ gap:10px; }
+  .res-form .row.gap3 > label{ flex:1; min-width:0; }
+  .res-pax{ display:grid; grid-template-columns:1fr 1fr; gap:6px; border:1px solid var(--border); border-radius:var(--r-md); padding:2px 10px; }
+  .res-eyebrow{ display:inline-flex; align-items:center; gap:6px; font-family:var(--font-display); font-weight:800; font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--ocean-700); }
+  .home-sep{ height:1px; background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 26%,transparent) 18%,color-mix(in srgb,var(--text) 26%,transparent) 82%,transparent); margin:26px 18px 8px; }
+  .res-seg{ display:flex; gap:4px; padding:4px; background:var(--slate-100,color-mix(in srgb,var(--text) 6%,var(--surface))); border-radius:var(--r-md); }
+  .res-seg button{ flex:1; padding:9px 6px; border:none; background:transparent; border-radius:calc(var(--r-md) - 4px); font-family:var(--font-display); font-weight:700; font-size:12.5px; color:var(--text-2); cursor:pointer; transition:all .15s ease; }
+  .res-seg button.on{ background:var(--surface); color:var(--ocean-700); box-shadow:var(--sh-sm); }
+  .res-seg-row{ border:1px solid var(--border); border-radius:var(--r-md); padding:12px; background:var(--surface); display:flex; flex-direction:column; gap:10px; }
+  .res-seg-rm{ display:inline-flex; align-items:center; gap:4px; border:none; background:transparent; color:var(--text-muted); font-size:12px; font-weight:700; cursor:pointer; }
+  .res-add{ display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px; border:1.5px dashed var(--border-strong,var(--border)); border-radius:var(--r-md); background:transparent; color:var(--ocean-700); font-family:var(--font-display); font-weight:700; font-size:13px; cursor:pointer; }
+  .res-toggle{ display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); cursor:pointer; padding:2px; }
+  .res-toggle input{ width:18px; height:18px; accent-color:var(--ocean); }
+  .mode-chip{ display:flex; flex-direction:column; align-items:center; gap:7px; padding:13px 6px 11px;
+    border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); cursor:pointer;
+    box-shadow:var(--sh-sm); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .mode-chip:hover{ transform:translateY(-2px); box-shadow:var(--sh-md); border-color:var(--ocean); }
+  .mode-chip b{ font-family:var(--font-display); font-size:12.5px; color:var(--text); text-align:center; line-height:1.2; }
+  .mode-ic{ width:42px; height:42px; border-radius:50%; display:grid; place-items:center; }
+  .mode-ic.u-ocean{ background:color-mix(in srgb,var(--ocean) 14%,var(--surface)); color:var(--ocean-700); }
+  .mode-ic.u-turq{ background:color-mix(in srgb,var(--turq,#19B6C9) 16%,var(--surface)); color:var(--turq-700,#0E7A88); }
+  .mode-ic.u-gold{ background:color-mix(in srgb,var(--gold,#E0A93B) 18%,var(--surface)); color:var(--gold-700,#9A6B12); }
+  .mode-ic.u-coral{ background:color-mix(in srgb,var(--coral,#F2724B) 16%,var(--surface)); color:var(--coral-700,#C0431F); }
+  .carousel .hscroll{ align-items:stretch; padding-left:max(18px, calc(50% - 122px)); padding-right:max(18px, calc(50% - 122px)); }
+  .carousel .hscroll > *{ transition:transform .4s cubic-bezier(.22,.61,.36,1), opacity .4s ease, filter .4s ease;
+    transform:scale(.86); opacity:.4; filter:saturate(.6) blur(.4px); transform-origin:center center; scroll-snap-align:center; }
+  .carousel .hscroll > *.is-center{ transform:scale(1); opacity:1; filter:none; }
+  .carousel .hscroll > * > .dest-card{ height:100%; display:flex; flex-direction:column; }
+  .carousel .hscroll > * > .dest-card > .body{ flex:1; display:flex; flex-direction:column; }
+  .carousel .hscroll > * > .dest-card > .body > .row.between{ margin-top:auto; }
+  .carousel-arrow{ position:absolute; top:calc(50% - 12px); transform:translateY(-50%); z-index:4;
+    width:40px; height:40px; border-radius:50%; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); display:grid; place-items:center; cursor:pointer; box-shadow:var(--sh-md);
+    opacity:1; transition:opacity .2s ease, transform .12s ease; }
+  .carousel-arrow:hover{ color:var(--ocean-700); }
+  .carousel-arrow:active{ transform:translateY(-50%) scale(.9); }
+  .carousel-arrow--prev{ left:6px; }
+  .carousel-arrow--next{ right:6px; }
+  .carousel-arrow[disabled]{ display:none; }
+  .carousel-dots{ display:flex; justify-content:center; gap:7px; padding:4px 0 2px; }
+  .carousel-dot{ width:7px; height:7px; border-radius:50%; border:none; padding:0; cursor:pointer;
+    background:var(--border); transition:width .3s ease, background .3s ease; }
+  .carousel-dot.is-active{ width:22px; border-radius:6px; background:var(--ocean); }
 
   .icon-btn{ width:44px; height:44px; border-radius:50%; border:none; background:var(--surface); color:var(--text); display:grid; place-items:center; cursor:pointer; box-shadow:var(--sh-xs); position:relative; flex:none; }
   .icon-btn.glass{ background:rgba(255,255,255,.85); backdrop-filter:blur(8px); color:var(--marine); }
@@ -180,6 +243,9 @@
   .bonplan-dest{ font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--text); }
   .bonplan-country{ font-size:12px; color:var(--text-2); }
   .bonplan-mid{ display:flex; flex-direction:column; gap:3px; }
+  .bonplan-type{ display:inline-flex; align-items:center; gap:4px; align-self:flex-start; margin:2px 0 4px;
+    font-size:11px; font-weight:700; color:var(--ocean-700); background:var(--ocean-50, color-mix(in srgb, var(--ocean) 12%, var(--surface)));
+    border:1px solid var(--border); border-radius:var(--r-pill); padding:2px 8px; }
   .bonplan-bot{ display:flex; align-items:flex-end; justify-content:space-between; margin-top:2px; }
   .bonplan-price{ display:block; font-family:var(--font-display); font-weight:800; font-size:22px; color:var(--ocean-700); line-height:1; margin-top:2px; }
   [data-theme="dark"] .bonplan-card{ color:var(--text); }
@@ -194,6 +260,18 @@
   /* ===== Package intelligent ===== */
   .vols-route{ display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-sunk); font-size:13.5px; color:var(--text); }
   .vols-route svg{ color:var(--ocean); flex:none; }
+  /* ===== Meilleures dates (Travelpayouts Data API) ===== */
+  .bestdates{ border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-sunk); padding:10px 10px 12px; }
+  .bestdates-head{ display:flex; align-items:center; justify-content:space-between; font-size:12.5px; font-weight:700; color:var(--text-2); padding:0 2px 8px; }
+  .bestdates-head svg{ color:var(--gold-700); }
+  .bestdates-row{ display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+  .bestdate-chip{ position:relative; flex:0 0 auto; min-width:88px; display:flex; flex-direction:column; gap:2px; align-items:flex-start; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); text-decoration:none; scroll-snap-align:start; transition:transform .12s, border-color .12s; }
+  .bestdate-chip:hover{ transform:translateY(-2px); border-color:var(--ocean); }
+  .bestdate-chip.cheap{ border-color:var(--success); background:color-mix(in oklab, var(--success) 10%, var(--surface)); padding-top:18px; }
+  .bestdate-flag{ position:absolute; top:-1px; left:-1px; font-size:9px; font-weight:800; letter-spacing:.02em; text-transform:uppercase; color:#fff; background:var(--success); padding:2px 7px; border-radius:var(--r-md) 0 8px 0; }
+  .bestdate-day{ font-family:var(--font-display); font-size:14px; color:var(--text); text-transform:capitalize; }
+  .bestdate-price{ font-family:var(--font-display); font-size:16px; font-weight:800; color:var(--ocean); }
+  [data-theme="dark"] .bestdate-price{ color:var(--aqua); }
   .pkg-pax{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
   .pkg-pax-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-sunk); }
   .pkg-pax-row > span{ font-family:var(--font-display); font-weight:600; font-size:14px; color:var(--text); }
@@ -201,6 +279,8 @@
   .pkg-step button{ width:30px; height:30px; border-radius:50%; border:1.5px solid var(--border-strong); background:var(--surface); color:var(--text); font-size:18px; font-weight:700; line-height:1; cursor:pointer; display:grid; place-items:center; }
   .pkg-step button:hover{ border-color:var(--ocean); color:var(--ocean); }
   .pkg-step b{ font-family:var(--font-display); font-size:16px; min-width:18px; text-align:center; color:var(--text); }
+  .pkg-origin-sel{ font-family:var(--font-display); font-weight:600; font-size:14px; color:var(--text); background:var(--surface); border:1.5px solid var(--border-strong); border-radius:var(--r-md); padding:7px 10px; cursor:pointer; max-width:62%; appearance:auto; }
+  .pkg-origin-sel option{ color:#0F172A; background:#fff; }
   .pkg-card{ border:1px solid var(--ocean); background:linear-gradient(180deg, color-mix(in srgb, var(--ocean) 6%, var(--surface)), var(--surface)); }
   .pkg-ic{ width:38px; height:38px; border-radius:11px; background:var(--grad-ocean); color:#fff; display:grid; place-items:center; flex:none; }
   .pkg-lines{ display:flex; flex-direction:column; gap:2px; margin-top:6px; }
@@ -448,11 +528,6 @@
 <text x="100" y="150" font-family="Poppins,sans-serif" font-size="26" font-weight="700" fill="#FFFFFF" text-anchor="middle">Webbina</text>
 </svg>
 </template>
-  <div class="stage-tools">
-    <button id="replayBtn" title="Revoir l'intro"><span id="replayIco"></span>Intro</button>
-    <button id="themeBtn" title="Thème"><span id="themeIco"></span><span id="themeLbl">Nuit</span></button>
-  </div>
-
   <div class="device-frame">
     <div class="notch"></div>
     <div id="app"></div>
@@ -472,12 +547,14 @@
   <script type="text/babel" src="assets/app-components.jsx"></script>
   <script type="text/babel" src="assets/webbina-auth.jsx"></script>
   <script type="text/babel" src="assets/app-living.jsx"></script>
+  <script type="text/babel" src="assets/app-globe.jsx"></script>
   <script type="text/babel" src="assets/app-welcome.jsx"></script>
   <script type="text/babel" src="assets/app-convo.jsx"></script>
   <script type="text/babel" src="assets/app-results.jsx"></script>
   <script type="text/babel" src="assets/app-booking.jsx"></script>
   <script type="text/babel" src="assets/app-explorer.jsx"></script>
   <script type="text/babel" src="assets/app-formalites.jsx"></script>
+  <script type="text/babel" src="assets/app-reserver.jsx"></script>
   <script type="text/babel" src="assets/app-dash.jsx"></script>
   <script type="text/babel" src="assets/app-shell.jsx"></script>
   <script>
@@ -485,18 +562,13 @@
       var root=document.documentElement;
       var saved=null; try{ saved=localStorage.getItem('tf_theme'); }catch(e){}
       root.setAttribute('data-theme', saved==='light'?'light':'dark'); // futuristic dark by default (unique identity); remembers choice
-      var tb=document.getElementById('themeBtn');
-      function paint(){ var dark=root.getAttribute('data-theme')==='dark';
-        document.getElementById('themeIco').innerHTML=tfIcon(dark?'sun':'moon',{size:17});
-        document.getElementById('themeLbl').textContent=dark?'Jour':'Nuit'; }
-      tb.addEventListener('click',function(){ var d=root.getAttribute('data-theme')==='dark'?'light':'dark'; root.setAttribute('data-theme', d); try{ localStorage.setItem('tf_theme', d); }catch(e){} paint(); });
-      paint();
-      document.getElementById('replayIco').innerHTML=tfIcon('refresh',{size:16});
-      document.getElementById('replayBtn').addEventListener('click',async function(){
-        try{ if(window.WebbinaAuth && window.WebbinaAuth.signOut) await window.WebbinaAuth.signOut(); }catch(e){}
+      // Theme toggle now lives inside the app header (ThemeToggle component) — no floating pill.
+      // "Revoir l'intro" lives in Profile and calls this:
+      window.tfReplayIntro=async function(){
+        try{ localStorage.removeItem('tf_intro_seen'); }catch(e){}
         try{ localStorage.removeItem('tf_app_state_v1'); }catch(e){}
         location.reload();
-      });
+      };
     })();
   </script>
 </body>

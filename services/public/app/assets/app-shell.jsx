@@ -65,21 +65,35 @@ function load(){ try{ return JSON.parse(localStorage.getItem(LS))||{}; }catch(e)
 
 function App() {
   const saved = load();
-  const [screen, setScreen] = React.useState(saved.screen || 'welcome');
+  const auth = (typeof window.useWebbinaAuth !== 'undefined') ? window.useWebbinaAuth() : { ready:true, authEnabled:false, user:null };
+  const introSeen = (()=>{ try{ return !!localStorage.getItem('tf_intro_seen'); }catch(e){ return false; } })();
+  const [screen, setScreen] = React.useState(introSeen ? 'auth' : 'welcome');
   const [trip, setTrip] = React.useState(null);
   const [booking, setBooking] = React.useState(null);
   const [chatCtx, setChatCtx] = React.useState('home');
   const [chatSeed, setChatSeed] = React.useState(null);
   const [parcours, setParcours] = React.useState(null);
+  const [reserverMode, setReserverMode] = React.useState('vol');
   const [favs, setFavs] = React.useState(saved.favs || ['annecy']);
   const [anim, setAnim] = React.useState(0);
 
   React.useEffect(()=>{ localStorage.setItem(LS, JSON.stringify({ screen, favs })); }, [screen, favs]);
 
+  // Mandatory account: once auth is live, you cannot use the app without a session.
+  React.useEffect(()=>{
+    if(!auth) return;
+    if(auth.user){
+      if(screen==='welcome' || screen==='auth'){ setScreen('home'); setAnim(a=>a+1); }
+    } else if(auth.ready && auth.authEnabled){
+      if(screen!=='welcome' && screen!=='auth'){ setScreen(introSeen?'auth':'welcome'); setAnim(a=>a+1); }
+    }
+  }, [auth && auth.user, auth && auth.ready, auth && auth.authEnabled, screen]);
+
   const go=(s,t)=>{ if(t) setTrip(t); setScreen(s); setAnim(a=>a+1); };
   const book=(payload)=>{ setBooking(payload); setScreen('booking'); setAnim(a=>a+1); };
   const openChat=(ctx, seed)=>{ setChatCtx(ctx); setChatSeed(seed||null); setScreen('chat'); setAnim(a=>a+1); };
   const openParcours=(id)=>{ setParcours(id); setScreen('parcours'); setAnim(a=>a+1); };
+  const openReserver=(m)=>{ setReserverMode(m); setScreen('reserver'); setAnim(a=>a+1); };
   const toggleFav=(id)=> setFavs(f=> f.includes(id)? f.filter(x=>x!==id):[...f,id]);
 
   const fullBleed = screen==='welcome';
@@ -91,8 +105,9 @@ function App() {
   let view;
   if(screen==='welcome') view=<WelcomeScreen go={go} />;
   else if(screen==='auth') view=<AuthScreen go={go} />;
-  else if(screen==='home') view=<HomeScreen go={go} openChat={openChat} openParcours={openParcours} favs={favs} toggleFav={toggleFav} />;
+  else if(screen==='home') view=<HomeScreen go={go} openChat={openChat} openParcours={openParcours} openReserver={openReserver} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='parcours') view=<ParcoursIntakeScreen parcours={parcours} go={go} openChat={openChat} />;
+  else if(screen==='reserver') view=<ReserverScreen mode={reserverMode} go={go} book={book} />;
   else if(screen==='chat') view=<ConversationScreen ctx={chatCtx} seed={chatSeed} go={go} book={book} />;
   else if(screen==='results') view=<ResultsScreen go={go} trip={trip} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='detail') view=<DetailScreen trip={trip} go={go} book={book} favs={favs} toggleFav={toggleFav} />;
@@ -102,6 +117,7 @@ function App() {
   else if(screen==='badges') view=<BadgesScreen go={go} />;
   else if(screen==='favoris') view=<FavorisScreen go={go} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='profil') view=<ProfilScreen go={go} />;
+  else if(screen==='passeports') view=<PassportsScreen go={go} />;
   else if(screen==='premium') view=<PremiumScreen go={go} />;
 
   return (

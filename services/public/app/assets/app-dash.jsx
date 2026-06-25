@@ -113,7 +113,7 @@ function ProfilScreen({ go }) {
           ))}
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:16 }}>
-          {[['star','Mes récompenses','badges'],['briefcase','Mémoire voyage','dashboard'],['users','Ma famille & enfants',null],['wallet','Moyens de paiement',null],['shield','Données & confidentialité',null],['phone','Aide & conseiller humain',null]].map((r,i)=>(
+          {[['star','Mes récompenses','badges'],['briefcase','Mémoire voyage','dashboard'],['shield','Passeports de la famille','passeports'],['users','Ma famille & enfants',null],['wallet','Moyens de paiement',null],['shield','Données & confidentialité',null],['phone','Aide & conseiller humain',null]].map((r,i)=>(
             <button key={i} className="row gap3 card profil-row" onClick={()=> r[2] && go(r[2])}>
               <div className="mem-ic"><Icon n={r[0]} size={20} /></div>
               <b style={{ flex:1, textAlign:'left', fontFamily:'var(--font-display)', fontSize:15 }}>{r[1]}</b>

@@ -55,7 +55,7 @@ function ConversationScreen({ ctx, seed, go }) {
   const histRef = React.useRef(_restored ? (window.__TF_CONVO.hist||[]).slice() : []); // {role, content} for the real brain
   const recRef = React.useRef(null);
 
-  React.useEffect(()=>{ if(window.WebbinaBackend){ window.WebbinaBackend.isLive().then(setLiveOn); } }, []);
+  React.useEffect(()=>{ if(window.WebbinaBackend){ try{ window.WebbinaBackend.wake&&window.WebbinaBackend.wake(); }catch(e){} window.WebbinaBackend.isLive().then(setLiveOn); } }, []);
 
   // Voice input (speech-to-text) — lets the user actually TALK to Webbina.
   // Primary: browser SpeechRecognition (free, instant, works on Chrome/Android & iOS Safari 14.5+).

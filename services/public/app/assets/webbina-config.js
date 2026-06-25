@@ -28,6 +28,9 @@
   var uid = read('webbina_user_id');
   if (uid) window.WEBBINA_USER_ID = uid;
 
+  // Travelpayouts affiliate marker (public — earns commission on partner bookings).
+  window.WEBBINA_TP_MARKER = '741019';
+
   // Tiny helper the Connexion panel uses to save + apply a new backend URL.
   window.WebbinaConfig = {
     get api() { return window.WEBBINA_API; },

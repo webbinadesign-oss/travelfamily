@@ -56,6 +56,9 @@ export interface Env {
 
   exchangeRateApiKey: string;
 
+  travelpayoutsToken: string;
+  travelpayoutsMarker: string;
+
   stripeSecretKey: string;
   stripePublishableKey: string;
   stripeCurrency: string;
@@ -109,6 +112,9 @@ export const env: Env = {
 
   exchangeRateApiKey: str('EXCHANGERATE_API_KEY'),
 
+  travelpayoutsToken: str('TRAVELPAYOUTS_TOKEN'),
+  travelpayoutsMarker: str('TRAVELPAYOUTS_MARKER', '741019'),
+
   stripeSecretKey: str('STRIPE_SECRET_KEY'),
   stripePublishableKey: str('STRIPE_PUBLISHABLE_KEY'),
   stripeCurrency: str('STRIPE_CURRENCY', 'eur'),
@@ -138,6 +144,7 @@ export function integrationStatus(): Record<string, boolean> {
     supabase: Boolean(env.supabaseUrl && (env.supabaseServiceRoleKey || env.supabaseAnonKey)),
     booking: Boolean(env.bookingApiKey),
     exchangeRate: Boolean(env.exchangeRateApiKey),
+    travelpayouts: Boolean(env.travelpayoutsToken),
     stripe: Boolean(env.stripeSecretKey),
   };
 }

@@ -190,6 +190,16 @@ function PackageCard({ dest, book }) {
   const [children, setChildren] = React.useState(Math.max(0, initKids));
   const [nights, setNights] = React.useState(dest.nights||7);
   const budget = dest._budget || null;
+  const ORIGINS = [
+    { code:'CDG', label:'Paris CDG' }, { code:'ORY', label:'Paris Orly' },
+    { code:'MPL', label:'Montpellier' }, { code:'BCN', label:'Barcelone' },
+    { code:'MRS', label:'Marseille' }, { code:'LYS', label:'Lyon' },
+    { code:'NCE', label:'Nice' }, { code:'TLS', label:'Toulouse' },
+    { code:'BOD', label:'Bordeaux' }, { code:'NTE', label:'Nantes' },
+    { code:'GVA', label:'Genève' }, { code:'BRU', label:'Bruxelles' },
+    { code:'LUX', label:'Luxembourg' },
+  ];
+  const [origin, setOrigin] = React.useState(()=>{ try{ return dest._dealOrigin || localStorage.getItem('tf_deal_origin') || 'CDG'; }catch(e){ return dest._dealOrigin || 'CDG'; } });
 
   async function build(){
     if(!window.WebbinaBackend || !window.WebbinaBackend.buildPackage){ setState('error'); return; }
@@ -199,7 +209,7 @@ function PackageCard({ dest, book }) {
       const ret=new Date(dep); ret.setDate(ret.getDate()+nights);
       const dd = dest._dealDates || {};
       const p = await window.WebbinaBackend.buildPackage({
-        origin: dest._dealOrigin||'CDG', destinationIata:dest.iata||'DPS', destinationName:dest.name,
+        origin: origin||'CDG', destinationIata:dest.iata||'DPS', destinationName:dest.name,
         lat:dest.lat, lng:dest.lng,
         departureDate: dd.dep || dep.toISOString().slice(0,10),
         returnDate: dd.ret || ret.toISOString().slice(0,10),
@@ -226,7 +236,12 @@ function PackageCard({ dest, book }) {
           <WebbinaReco>{`Laissez-moi tout organiser pour ${dest.name} : je combine le vol, l'hébergement et les activités en un seul séjour, dans votre budget. ✨`}</WebbinaReco>
           <div className="pkg-pax">
             <div className="pkg-pax-row">
-              <span>Adultes</span>
+              <span>Départ de</span>
+              <select className="pkg-origin-sel" value={origin} onChange={e=>{ const c=e.target.value; setOrigin(c); try{ localStorage.setItem('tf_deal_origin', c); }catch(err){} }} aria-label="Aéroport de départ">
+                {ORIGINS.map(o=><option key={o.code} value={o.code}>{o.label} ({o.code})</option>)}
+              </select>
+            </div>
+            <div className="pkg-pax-row">
               <div className="pkg-step">
                 <button type="button" onClick={()=>setAdults(a=>Math.max(1,a-1))} aria-label="Moins d'adultes">−</button>
                 <b>{adults}</b>

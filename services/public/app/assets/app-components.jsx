@@ -34,7 +34,7 @@ function DestCard({ d, onOpen, fav, onFav, showMatch }) {
           {d.meta.map(([i,t],k)=><span key={k} className="row gap2" style={{ alignItems:'center' }}><Icon n={i} size={14} />{t}</span>)}
         </div>
         <div className="row between" style={{ marginTop:10 }}>
-          <b style={{ fontFamily:'var(--font-display)', fontSize:16 }}>dès {d.price} €<span className="micro" style={{ fontWeight:500 }}> /pers.</span></b>
+          <b style={{ fontFamily:'var(--font-display)', fontSize:16 }}><span className="micro" style={{ fontWeight:600, color:'var(--ocean-700)' }}>Vol </span>dès {d.price} €<span className="micro" style={{ fontWeight:500 }}> /pers.</span></b>
           <span className="row gap2 micro" style={{ color:'var(--gold-700)', fontWeight:700 }}><Icon n="star" size={14} />{String(d.rating).replace('.',',')}</span>
         </div>
       </div>
@@ -238,4 +238,17 @@ function SpeakBtn({ text, label }) {
   );
 }
 
-Object.assign(window, { Icon, Avatar, Badge, DestCard, MsgAI, MsgUser, MsgSystem, Typing, Stepper, Slider, ChipPick, StatusDot, Connector, Voice, VoiceToggle, SpeakBtn });
+/* day/night toggle — lives inside the app header (no longer a floating pill) */
+function ThemeToggle({ compact }){
+  const get=()=> (document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light');
+  const [theme,setTheme]=React.useState(get());
+  const flip=()=>{ const d=get()==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',d); try{ localStorage.setItem('tf_theme',d); }catch(e){} setTheme(d); };
+  const dark=theme==='dark';
+  return (
+    <button className="icon-btn" onClick={flip} aria-label={dark?'Passer en mode jour':'Passer en mode nuit'} title={dark?'Mode jour':'Mode nuit'}>
+      <Icon n={dark?'sun':'moon'} size={22} />
+    </button>
+  );
+}
+
+Object.assign(window, { Icon, Avatar, Badge, DestCard, MsgAI, MsgUser, MsgSystem, Typing, Stepper, Slider, ChipPick, StatusDot, Connector, Voice, VoiceToggle, SpeakBtn, ThemeToggle });

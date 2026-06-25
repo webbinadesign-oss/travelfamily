@@ -10,11 +10,12 @@ import { coherenceRouter } from './coherence.routes.js';
 import { bookingRouter } from './booking.routes.js';
 import { dealsRouter } from './deals.routes.js';
 import { packageRouter } from './package.routes.js';
+import { travelpayoutsRouter } from './travelpayouts.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-uxfix4-2';
+export const BUILD_VERSION = 'phase3-tp-data-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -30,6 +31,8 @@ apiRouter.get('/config', (_req, res) => {
     elevenAgentId: env.elevenLabsAgentId,
     stripePublishableKey: env.stripePublishableKey || '',
     paymentEnabled: Boolean(env.stripeSecretKey && env.stripePublishableKey),
+    travelpayoutsMarker: env.travelpayoutsMarker || '',
+    travelpayoutsData: Boolean(env.travelpayoutsToken),
   });
 });
 
@@ -43,3 +46,4 @@ apiRouter.use('/coherence', coherenceRouter); // Itinerary timing engine (J+1, c
 apiRouter.use('/booking', bookingRouter); // Pricing/commission + Stripe payment
 apiRouter.use('/deals', dealsRouter); // Bon plan du jour — deal discovery
 apiRouter.use('/package', packageRouter); // Package intelligent — vol+hôtel+activités assemblés
+apiRouter.use('/tp', travelpayoutsRouter); // Travelpayouts Data API — vrais prix + meilleures dates

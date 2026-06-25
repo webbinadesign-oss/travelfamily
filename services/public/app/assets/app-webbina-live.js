@@ -34,6 +34,11 @@
       return _live;
     },
 
+    /** Fire-and-forget wake-up ping — re-warms a slept Render dyno. */
+    wake: function () {
+      try { if (api()) fetch(api() + '/api/health', { cache: 'no-store' }).catch(function () {}); } catch (e) {}
+    },
+
     /** Personalised greeting for the logged-in user, or null. */
     greeting: async function () {
       var id = uid(); if (!id || !api()) return null;
@@ -53,28 +58,57 @@
      */
     chat: async function (messages, onToken) {
       if (!api()) throw new Error('no_backend');
-      var res = await fetch(api() + '/api/chat', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-        body: JSON.stringify({ messages: messages, stream: true }),
-      });
-      if (!res.ok || !res.body) throw new Error('chat_' + res.status);
+      // Abort-based timeouts so a stalled Render dyno fails fast into the retry
+      // path instead of hanging forever ("ça ne répond plus"):
+      //  • headersMs  — time allowed to get the first response (covers cold start)
+      //  • stallMs    — max gap between two tokens once streaming has started
+      var headersMs = 38000, stallMs = 22000;
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = null;
+      var arm = function (ms) {
+        if (timer) clearTimeout(timer);
+        if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, ms);
+      };
+      var disarm = function () { if (timer) { clearTimeout(timer); timer = null; } };
+      arm(headersMs);
+      var res;
+      try {
+        res = await fetch(api() + '/api/chat', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+          body: JSON.stringify({ messages: messages, stream: true }),
+          signal: ctrl ? ctrl.signal : undefined,
+        });
+      } catch (e) {
+        disarm();
+        throw new Error(e && e.name === 'AbortError' ? 'chat_timeout' : 'chat_network');
+      }
+      if (!res.ok || !res.body) { disarm(); throw new Error('chat_' + res.status); }
       var reader = res.body.getReader();
       var dec = new TextDecoder();
       var buf = '', full = '';
-      for (;;) {
-        var chunk = await reader.read();
-        if (chunk.done) break;
-        buf += dec.decode(chunk.value, { stream: true });
-        var lines = buf.split('\n'); buf = lines.pop() || '';
-        for (var i = 0; i < lines.length; i++) {
-          var s = lines[i].trim();
-          if (s.indexOf('data:') !== 0) continue;
-          var payload = s.slice(5).trim();
-          if (payload === '[DONE]') continue;
-          try { var j = JSON.parse(payload); if (j.token) { full += j.token; if (onToken) onToken(j.token); } } catch (e) {}
+      try {
+        for (;;) {
+          arm(stallMs);
+          var chunk = await reader.read();
+          if (chunk.done) break;
+          buf += dec.decode(chunk.value, { stream: true });
+          var lines = buf.split('\n'); buf = lines.pop() || '';
+          for (var i = 0; i < lines.length; i++) {
+            var s = lines[i].trim();
+            if (s.indexOf('data:') !== 0) continue;
+            var payload = s.slice(5).trim();
+            if (payload === '[DONE]') continue;
+            try { var j = JSON.parse(payload); if (j.token) { full += j.token; if (onToken) onToken(j.token); } } catch (e) {}
+          }
         }
+      } catch (e) {
+        disarm();
+        // If we already streamed something usable, keep it instead of failing.
+        if (full) return full;
+        throw new Error(e && e.name === 'AbortError' ? 'chat_stalled' : 'chat_stream');
       }
+      disarm();
       return full;
     },
 
@@ -184,8 +218,36 @@
       } catch (e) { return null; }
     },
 
-    /** Assemble a full trip (flight + hotel + activities) into one package. */
-    buildPackage: async function (input) {
+    /** Travelpayouts Data API — real cached fares for a route (cheapest first). */
+    tpPrices: async function (q) {
+      if (!api()) return null;
+      try {
+        var p = new URLSearchParams();
+        p.set('origin', q.origin); p.set('destination', q.destination);
+        if (q.departureDate) p.set('departureDate', q.departureDate);
+        if (q.returnDate) p.set('returnDate', q.returnDate);
+        if (q.oneWay) p.set('oneWay', 'true');
+        if (q.limit) p.set('limit', String(q.limit));
+        var r = await fetch(api() + '/api/tp/prices?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        var j = await r.json();
+        return (j && j.fares) || [];
+      } catch (e) { return null; }
+    },
+
+    /** Travelpayouts Data API — cheapest upcoming DATES for a route ("bonnes dates"). */
+    tpBestDates: async function (origin, destination, limit) {
+      if (!api()) return null;
+      try {
+        var p = new URLSearchParams();
+        p.set('origin', origin); p.set('destination', destination);
+        if (limit) p.set('limit', String(limit));
+        var r = await fetch(api() + '/api/tp/best-dates?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        var j = await r.json();
+        return (j && j.dates) || [];
+      } catch (e) { return null; }
+    },
       if (!api()) throw new Error('no_backend');
       var r = await fetch(api() + '/api/package', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -230,6 +292,17 @@
         var j = await r.json();
         return (j && j.items) || [];
       } catch (e) { return null; }
+    },
+
+    /** Add/register a passport for the logged-in user (private, RLS-protected). */
+    addPassport: async function (p) {
+      var id = uid(); if (!id || !api()) throw new Error('no_account');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var r = await fetch(api() + '/api/memory/' + id + '/passports', {
+        method: 'POST', headers, body: JSON.stringify(p),
+      });
+      if (!r.ok) { var e = await r.json().catch(function () { return {}; }); throw new Error((e.error && e.error.code) || ('passport_' + r.status)); }
+      return await r.json();
     },
 
     /** Registered travelers for the logged-in user (memory). */

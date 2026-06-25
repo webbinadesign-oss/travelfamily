@@ -306,7 +306,10 @@ function VolsTab({ dest, book }) {
   const [flights, setFlights] = React.useState(TF.FLIGHTS);
   const [rawBest, setRawBest] = React.useState(null);
   const [note, setNote] = React.useState(null);
+  const [bestDates, setBestDates] = React.useState(null); // Travelpayouts "bonnes dates"
   const origin = (dest && dest._dealOrigin) || 'CDG';
+  const _ad = dest && dest._pax!=null ? Math.max(1,(dest._pax|0)-((dest._kids|0))) : 2;
+  const _ch = dest && dest._kids!=null ? Math.max(0,dest._kids|0) : 2;
   const ORIGIN_LABELS = { CDG:'Paris CDG', ORY:'Paris Orly', MPL:'Montpellier', BCN:'Barcelone', MRS:'Marseille', LYS:'Lyon', NCE:'Nice', TLS:'Toulouse', BOD:'Bordeaux', NTE:'Nantes', GVA:'Genève', BRU:'Bruxelles', LUX:'Luxembourg' };
   const originLabel = ORIGIN_LABELS[origin] || origin;
 
@@ -319,9 +322,10 @@ function VolsTab({ dest, book }) {
       if(!live){ if(!cancelled){ setState('fallback'); setNote('Hors-ligne — exemples affichés.'); } return; }
       setState('loading');
       // depart ~6 weeks out (test-data friendly), 2 adults + 2 children
-      const dep=new Date(); dep.setDate(dep.getDate()+42);
+      let dep; if(dest && dest._depDate){ dep=new Date(dest._depDate); } else { dep=new Date(); dep.setDate(dep.getDate()+42); }
+      const ret = dest && dest._retDate ? dest._retDate : undefined;
       try{
-        const r = await window.WebbinaBackend.searchFlights({ origin, destination:iata, departureDate:dep.toISOString().slice(0,10), adults:2, children:2, maxResults:5 });
+        const r = await window.WebbinaBackend.searchFlights({ origin, destination:iata, departureDate:dep.toISOString().slice(0,10), returnDate:ret, adults:_ad, children:_ch, maxResults:5 });
         if(cancelled) return;
         const items=(r.items||[]).map(offerToCard);
         if(items.length){ items[0].recommended=true; items[0].reason='La meilleure combinaison prix / escales que j\'ai trouvée en direct pour vos dates. ✨'; setFlights(items); setRawBest((r.items||[])[0]||null); setState('live'); }
@@ -329,7 +333,22 @@ function VolsTab({ dest, book }) {
       }catch(e){ if(!cancelled){ setState('fallback'); setNote('Recherche indisponible — exemples affichés.'); } }
     })();
     return ()=>{ cancelled=true; };
-  }, [dest && dest.iata]);
+  }, [dest && dest.iata, dest && dest._depDate, dest && dest._retDate, dest && dest._pax, dest && dest._kids]);
+
+  // Travelpayouts "meilleures dates" — real cached cheapest dates for the route.
+  React.useEffect(()=>{
+    let cancelled=false;
+    const iata = dest && dest.iata;
+    setBestDates(null);
+    if(!iata || !window.WebbinaBackend || !window.WebbinaBackend.tpBestDates) return;
+    (async()=>{
+      try{
+        const rows = await window.WebbinaBackend.tpBestDates(origin, iata, 6);
+        if(!cancelled && Array.isArray(rows) && rows.length) setBestDates(rows);
+      }catch(e){}
+    })();
+    return ()=>{ cancelled=true; };
+  }, [dest && dest.iata, origin]);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:12, paddingBottom:8 }}>
@@ -337,6 +356,28 @@ function VolsTab({ dest, book }) {
         <Icon n="plane" size={15} />
         <span><b>{originLabel}</b> <span style={{ opacity:.6 }}>({origin})</span> → <b>{dest&&dest.name}</b>{dest&&dest.iata?<span style={{ opacity:.6 }}> ({dest.iata})</span>:null}</span>
       </div>
+      {bestDates && bestDates.length>0 && (
+        <div className="bestdates">
+          <div className="bestdates-head">
+            <span className="row gap2"><Icon n="sparkles" size={13} />Meilleures dates trouvées</span>
+            <span className="micro" style={{ opacity:.6 }}>prix indicatifs · aller</span>
+          </div>
+          <div className="bestdates-row">
+            {bestDates.map((d,i)=>{
+              const dt = new Date(d.departureDate+'T00:00:00');
+              const lbl = isNaN(dt) ? d.departureDate : dt.toLocaleDateString('fr-FR',{ day:'numeric', month:'short' });
+              return (
+                <a key={i} className={`bestdate-chip ${i===0?'cheap':''}`} href={d.bookLink} target="_blank" rel="noopener noreferrer">
+                  {i===0 && <span className="bestdate-flag">le moins cher</span>}
+                  <b className="bestdate-day">{lbl}</b>
+                  <span className="bestdate-price">{d.price} {d.currency==='EUR'?'€':d.currency}</span>
+                  <span className="micro" style={{ opacity:.6 }}>{d.transfers===0?'direct':d.transfers+' escale'+(d.transfers>1?'s':'')}</span>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="compare-head">
         {state==='live'
           ? <span className="row gap2" style={{ color:'var(--success)', fontWeight:700 }}><Icon n="check" size={14} />Vols réels en direct · Duffel</span>
@@ -441,10 +482,12 @@ function HotelsTab({ dest }) {
       const live = await window.WebbinaBackend.isLive();
       if(!live){ if(!cancelled){ setState('fallback'); setNote('Hors-ligne — exemples affichés.'); } return; }
       setState('loading');
-      const ci=new Date(); ci.setDate(ci.getDate()+42);
+      const _ad = dest._pax!=null ? Math.max(1,(dest._pax|0)-((dest._kids|0))) : 2;
+      const _ch = dest._kids!=null ? Math.max(0,dest._kids|0) : 2;
+      let ci; if(dest._depDate){ ci=new Date(dest._depDate); } else { ci=new Date(); ci.setDate(ci.getDate()+42); }
       const co=new Date(ci); co.setDate(co.getDate()+ (dest.nights||5));
       try{
-        const r = await window.WebbinaBackend.searchHotels({ lat, lng, checkInDate:ci.toISOString().slice(0,10), checkOutDate:co.toISOString().slice(0,10), adults:2, children:2, radiusKm:12 });
+        const r = await window.WebbinaBackend.searchHotels({ lat, lng, checkInDate:ci.toISOString().slice(0,10), checkOutDate:co.toISOString().slice(0,10), adults:_ad, children:_ch, radiusKm:12 });
         if(cancelled) return;
         const items=(r.items||[]).slice(0,6).map(hotelToCard);
         if(items.length){ items[0].recommended=true; items[0].reason='Le meilleur rapport qualité-prix que j\'ai trouvé en direct près de '+dest.name+', pour vos dates. ✨'; setHotels(items); setState('live'); }
@@ -452,7 +495,7 @@ function HotelsTab({ dest }) {
       }catch(e){ if(!cancelled){ setState('fallback'); setNote('Recherche indisponible — exemples affichés.'); } }
     })();
     return ()=>{ cancelled=true; };
-  }, [dest && dest.id]);
+  }, [dest && dest.id, dest && dest._depDate, dest && dest._pax, dest && dest._kids]);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:12, paddingBottom:8 }}>
@@ -539,4 +582,4 @@ function ItineraryTab() {
   );
 }
 
-Object.assign(window, { ResultsScreen, DetailScreen });
+Object.assign(window, { ResultsScreen, DetailScreen, VolsTab, HotelsTab });

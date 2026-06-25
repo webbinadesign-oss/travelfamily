@@ -28,6 +28,7 @@
     menu:'M4 7h16M4 12h16M4 17h16',
     grid:'M4 4h7v7H4zM13 4h7v7h-7zM13 13h7v7h-7zM4 13h7v7H4z',
     chevronRight:'M9 5l7 7-7 7',
+    chevronLeft:'M15 5l-7 7 7 7',
     chevronDown:'M5 9l7 7 7-7',
     arrowRight:'M4 12h16M14 6l6 6-6 6',
     arrowLeft:'M20 12H4M10 6l-6 6 6 6',

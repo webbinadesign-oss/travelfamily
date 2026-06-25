@@ -93,7 +93,7 @@ function App() {
   else if(screen==='auth') view=<AuthScreen go={go} />;
   else if(screen==='home') view=<HomeScreen go={go} openChat={openChat} openParcours={openParcours} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='parcours') view=<ParcoursIntakeScreen parcours={parcours} go={go} openChat={openChat} />;
-  else if(screen==='chat') view=<ConversationScreen ctx={chatCtx} seed={chatSeed} go={go} />;
+  else if(screen==='chat') view=<ConversationScreen ctx={chatCtx} seed={chatSeed} go={go} book={book} />;
   else if(screen==='results') view=<ResultsScreen go={go} trip={trip} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='detail') view=<DetailScreen trip={trip} go={go} book={book} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='booking') view=<BookingScreen booking={booking} go={go} />;

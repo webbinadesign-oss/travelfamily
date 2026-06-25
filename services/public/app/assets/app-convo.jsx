@@ -57,12 +57,33 @@ function ConversationScreen({ ctx, seed, go }) {
   React.useEffect(()=>{ if(window.WebbinaBackend){ window.WebbinaBackend.isLive().then(setLiveOn); } }, []);
 
   // Voice input (speech-to-text) — lets the user actually TALK to Webbina.
-  // Universal mic: record audio (works on iPhone too) → backend Whisper transcription.
-  const speechOK = (typeof navigator!=='undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder!=='undefined');
+  // Primary: browser SpeechRecognition (free, instant, works on Chrome/Android & iOS Safari 14.5+).
+  // Fallback: record audio → backend transcription (when a key is configured).
+  const webSpeechOK = (typeof window!=='undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const recordOK = (typeof navigator!=='undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder!=='undefined');
+  const speechOK = webSpeechOK || recordOK;
   async function toggleMic(){
-    if(!speechOK){ return; }
-    if(listening){ try{ recRef.current && recRef.current.stop(); }catch(e){} return; } // stop → onstop transcribes
+    if(listening){
+      try{ recRef.current && (recRef.current.stop ? recRef.current.stop() : recRef.current.abort && recRef.current.abort()); }catch(e){}
+      return;
+    }
     try{ Voice.cancel(); }catch(e){}
+    // ── Primary path: browser speech recognition ──
+    if(webSpeechOK){
+      try{
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const rec = new SR();
+        rec.lang='fr-FR'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+        let finalText='';
+        rec.onresult=(ev)=>{ let t=''; for(let i=ev.resultIndex;i<ev.results.length;i++){ t+=ev.results[i][0].transcript; if(ev.results[i].isFinal) finalText+=ev.results[i][0].transcript; } setInput(finalText||t); };
+        rec.onerror=()=>{ setListening(false); };
+        rec.onend=()=>{ setListening(false); const t=(finalText||'').trim(); if(t){ sendFreeText(t); setInput(''); } };
+        recRef.current=rec; rec.start(); setListening(true);
+        return;
+      }catch(e){ /* fall through to recorder */ }
+    }
+    // ── Fallback path: record audio → backend transcription ──
+    if(!recordOK){ return; }
     try{
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
       const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4'].find(m=>{ try{ return MediaRecorder.isTypeSupported(m); }catch(e){ return false; } }) || '';
@@ -80,13 +101,14 @@ function ConversationScreen({ ctx, seed, go }) {
           setTyping(false); setSending(false);
           const t=(text||'').trim();
           if(t){ sendFreeText(t); }
+          else { setMsgs(m=>[...m, { who:'sys', t:'Je n’ai pas bien saisi — vous pouvez réessayer ou m’écrire. ✍️' }]); }
         }catch(e){ setTyping(false); setSending(false); }
       };
       recRef.current=rec;
       rec.start(); setListening(true);
     }catch(e){ setListening(false); }
   }
-  React.useEffect(()=>()=>{ try{ recRef.current && recRef.current.state!=='inactive' && recRef.current.stop(); }catch(e){} }, []);
+  React.useEffect(()=>()=>{ try{ const r=recRef.current; if(r){ if(r.state && r.state!=='inactive') r.stop(); else if(r.abort) r.abort(); } }catch(e){} }, []);
 
   // If the user is logged in, open with their personalised memory greeting.
   React.useEffect(()=>{
@@ -124,43 +146,59 @@ function ConversationScreen({ ctx, seed, go }) {
     try {
       let full = '';
       let idx = -1;
+      const DEVIS_RE=/§\s*DEVIS\s*([\s\S]*?)\s*§/i;
+      const stripDevis=(s)=> s.replace(/§\s*DEVIS[\s\S]*$/i,'').trim();
       await window.WebbinaBackend.chat(histRef.current, (tok)=>{
         full += tok;
         setTyping(false);
+        const shown = stripDevis(full);
         setMsgs(m=>{
           const copy=m.slice();
-          if(idx<0){ idx=copy.length; copy.push({ who:'ai', t: full, expr:'happy', streaming:true }); }
-          else { copy[idx]={ who:'ai', t: full, expr:'happy', streaming:true }; }
+          if(idx<0){ idx=copy.length; copy.push({ who:'ai', t: shown, expr:'happy', streaming:true }); }
+          else { copy[idx]={ who:'ai', t: shown, expr:'happy', streaming:true }; }
           return copy;
         });
       });
+      const clean = stripDevis(full);
       // mark complete → now the voice may read the whole phrase once
-      setMsgs(m=>{ const copy=m.slice(); if(idx>=0 && copy[idx]) copy[idx]={ ...copy[idx], streaming:false }; return copy; });
-      histRef.current.push({ role:'assistant', content: full });
-      if(window.WebbinaBackend.remember) window.WebbinaBackend.remember(text, full);
-      // After replying, see if the user named a destination → launch a real search.
-      maybeSearchFlights(text);
+      setMsgs(m=>{ const copy=m.slice(); if(idx>=0 && copy[idx]) copy[idx]={ ...copy[idx], t:clean, streaming:false }; return copy; });
+      histRef.current.push({ role:'assistant', content: clean });
+      if(window.WebbinaBackend.remember) window.WebbinaBackend.remember(text, clean);
+      // Did Webbina decide to compose a full quote? Assemble it (flight + stay + activities).
+      let devis=null; const mm=DEVIS_RE.exec(full);
+      if(mm){ try{ devis=JSON.parse(mm[1]); }catch(e){ devis=null; } }
+      if(devis && devis.iata){ proposeDevis(devis); }
+      else { maybeSearchFlights(text); }
     } catch(err) {
-      // Cold start (Render waking up): wait, ping health, retry once silently.
-      try{
-        setMsgs(m=>[...m, { who:'ai', t:"Je me réveille, deux secondes… ☕", expr:'reassuring', streaming:false, _wake:true }]);
-        await new Promise(r=>setTimeout(r, 3500));
-        if(window.WebbinaBackend){ try{ window.WebbinaBackend._live=null; await window.WebbinaBackend.isLive(); }catch(e){} }
-        let full2=''; let idx2=-1;
-        await window.WebbinaBackend.chat(histRef.current, (tok)=>{
-          full2+=tok; setTyping(false);
-          setMsgs(m=>{ const copy=m.slice().filter(x=>!x._wake);
-            if(idx2<0){ idx2=copy.length; copy.push({ who:'ai', t:full2, expr:'happy', streaming:true }); }
-            else { copy[idx2]={ who:'ai', t:full2, expr:'happy', streaming:true }; }
-            return copy; });
-        });
-        setMsgs(m=>{ const copy=m.slice(); const li=copy.map(x=>x.who).lastIndexOf('ai'); if(li>=0) copy[li]={ ...copy[li], streaming:false }; return copy; });
-        histRef.current.push({ role:'assistant', content: full2 });
-        if(window.WebbinaBackend.remember) window.WebbinaBackend.remember(text, full2);
-        maybeSearchFlights(text);
-      } catch(err2){
+      // Transient failure: Render cold start OR Gemini free-tier rate limit (429).
+      // Wait, re-check health, and retry up to 2 times with growing backoff — keeps
+      // the conversation alive instead of dead-ending after a few messages.
+      let recovered=false;
+      for(let attempt=0; attempt<2 && !recovered; attempt++){
+        try{
+          if(attempt===0) setMsgs(m=>[...m, { who:'ai', t:"Je réfléchis, un petit instant… ☕", expr:'reassuring', streaming:false, _wake:true }]);
+          await new Promise(r=>setTimeout(r, 3000 + attempt*4000));
+          if(window.WebbinaBackend){ try{ window.WebbinaBackend._live=null; await window.WebbinaBackend.isLive(); }catch(e){} }
+          let full2=''; let idx2=-1;
+          await window.WebbinaBackend.chat(histRef.current, (tok)=>{
+            full2+=tok; setTyping(false);
+            setMsgs(m=>{ const copy=m.slice().filter(x=>!x._wake);
+              if(idx2<0){ idx2=copy.length; copy.push({ who:'ai', t:full2, expr:'happy', streaming:true }); }
+              else { copy[idx2]={ who:'ai', t:full2, expr:'happy', streaming:true }; }
+              return copy; });
+          });
+          if(full2.trim()){
+            setMsgs(m=>{ const copy=m.slice(); const li=copy.map(x=>x.who).lastIndexOf('ai'); if(li>=0) copy[li]={ ...copy[li], streaming:false }; return copy; });
+            histRef.current.push({ role:'assistant', content: full2 });
+            if(window.WebbinaBackend.remember) window.WebbinaBackend.remember(text, full2);
+            maybeSearchFlights(text);
+            recovered=true;
+          }
+        } catch(err2){ /* try again */ }
+      }
+      if(!recovered){
         setTyping(false);
-        setMsgs(m=>[...m.filter(x=>!x._wake), { who:'ai', t:"Je n'arrive pas à me connecter pour l'instant. 😅 Réessayez dans un petit instant, ou continuons avec les questions guidées.", expr:'reassuring' }]);
+        setMsgs(m=>[...m.filter(x=>!x._wake), { who:'ai', t:"Je suis très sollicitée là, tout de suite — laissez-moi quelques secondes et réécrivez-moi votre message. 💙", expr:'reassuring' }]);
       }
     } finally { setSending(false); }
   }
@@ -192,6 +230,30 @@ function ConversationScreen({ ctx, seed, go }) {
       }
     }catch(e){
       setMsgs(m=>[...m, { who:'ai', t:`La recherche de vols est momentanément indisponible. Réessayons dans un instant. 😊`, expr:'reassuring' }]);
+    }
+  }
+
+  // Webbina has gathered enough → assemble a full quote (flight + stay + activities).
+  async function proposeDevis(d){
+    if(!window.WebbinaBackend || !window.WebbinaBackend.buildPackage) return;
+    const known=(TF.DESTINATIONS||[]).find(x=>x.iata===d.iata || (x.name||'').toLowerCase()===(d.dest||'').toLowerCase());
+    const adults=Math.max(1, +d.adults||2), children=Math.max(0, +d.children||0);
+    const nights=Math.max(1, +d.nights||7), budget=+d.budget||0;
+    const dep=new Date(); dep.setDate(dep.getDate()+42);
+    const ret=new Date(dep); ret.setDate(ret.getDate()+nights);
+    const loadKey=Date.now()+Math.random();
+    setMsgs(m=>[...m, { who:'devis', _k:loadKey, loading:true, dest:(d.dest||(known&&known.name)||'votre destination') }]);
+    try{
+      const p=await window.WebbinaBackend.buildPackage({
+        origin:d.origin||'CDG', destinationIata:d.iata, destinationName:d.dest||(known&&known.name)||d.iata,
+        lat:known&&known.lat, lng:known&&known.lng,
+        departureDate:dep.toISOString().slice(0,10), returnDate:ret.toISOString().slice(0,10),
+        adults, children, budget:budget||undefined,
+      });
+      const destObj=known || { id:'devis-'+d.iata, iata:d.iata, name:d.dest||d.iata, country:(known&&known.country)||'', img:'photo-beach.jpg', rating:4.6, nights };
+      setMsgs(m=>m.map(x=> x._k===loadKey ? { who:'devis', _k:loadKey, loading:false, pkg:p, dest:destObj, adults, children, budget } : x));
+    }catch(e){
+      setMsgs(m=>m.map(x=> x._k===loadKey ? { who:'ai', t:"Je n'ai pas réussi à assembler le devis à l'instant — réessayons dans un moment, ou je peux vous montrer les vols seuls. 💙", expr:'reassuring' } : x));
     }
   }
 
@@ -315,6 +377,7 @@ function ConversationScreen({ ctx, seed, go }) {
               : m.who==='ai' ? <MsgAI key={i} anim expr={m.expr}><span dangerouslySetInnerHTML={{__html:m.t}} /></MsgAI>
               : m.who==='user' ? <MsgUser key={i}>{m.t}</MsgUser>
               : m.who==='flights' ? <FlightBubble key={i} dest={m.dest} items={m.items} onOpen={()=>go('detail', m.dest)} />
+              : m.who==='devis' ? <DevisBubble key={i} m={m} onBook={()=>book && book({ dest:m.dest, package:m.pkg, flight:{ airline:'Séjour '+(m.dest&&m.dest.name||''), code:'★', price:m.pkg&&m.pkg.pricing?Math.round(m.pkg.pricing.total/((m.adults||0)+(m.children||0)||1)):0, via:(m.pkg&&m.pkg.nights||7)+' nuits', dur:'Vol + hébergement + activités', time:'', _kids:m.children, _adults:m.adults } })} onDetail={()=>go('detail', { ...(m.dest||{}), _pax:(m.adults||0)+(m.children||0), _kids:m.children, _budget:m.budget })} />
               : <SearchCard key={i} />
             ))}
           </React.Fragment>);
@@ -445,4 +508,35 @@ function FlightBubble({ dest, items, onOpen }) {
   );
 }
 
-Object.assign(window, { ConversationScreen, FlightBubble });
+/* Inline full quote (devis) inside the conversation: flight + stay + activities, one price. */
+function devisFmt(n){ return Math.round(n||0).toLocaleString('fr-FR'); }
+function DevisBubble({ m, onBook, onDetail }){
+  if(m.loading){
+    return (
+      <div className="devis-bubble">
+        <div className="fb-head"><Avatar size={30} expr="focused" /><div className="micro" style={{ fontWeight:700 }}>Je compose votre devis pour {m.dest}… ✨</div></div>
+        <div className="devis-skel"><span></span><span></span><span></span></div>
+      </div>
+    );
+  }
+  const p=m.pkg||{}; const pr=p.pricing||{}; const pax=(m.adults||0)+(m.children||0)||1;
+  const fl=p.flight||{}; const ho=p.hotel||{}; const ac=p.activities||{};
+  const within = m.budget ? (pr.total||0)<=m.budget : true;
+  return (
+    <div className="devis-bubble">
+      <div className="fb-head"><Avatar size={30} expr="enthusiastic" /><div className="micro" style={{ color:'var(--success)', fontWeight:700 }}><Icon n="check" size={13} /> Devis assemblé · {m.dest&&m.dest.name}</div></div>
+      <div className="devis-title">{m.dest&&m.dest.name} · {p.nights||7} nuits · {pax} voyageur{pax>1?'s':''}</div>
+      <div className="devis-lines">
+        <div className="devis-line"><span className="dl-ic"><Icon n="plane" size={15} /></span><div className="dl-txt"><b>Vol aller-retour</b><span className="micro">{fl.stops===0?'Direct':((fl.stops||0)+' escale'+((fl.stops||0)>1?'s':''))} · {(fl.source||'')==='duffel-live'?'prix réel':'estimation'}</span></div><b className="dl-price">{devisFmt(fl.total)} €</b></div>
+        <div className="devis-line"><span className="dl-ic"><Icon n="bed" size={15} /></span><div className="dl-txt"><b>Hébergement</b><span className="micro">{p.nights||7} nuits {ho.estimated?'· estimation':''}</span></div><b className="dl-price">{devisFmt(ho.total)} €</b></div>
+        <div className="devis-line"><span className="dl-ic"><Icon n="sparkles" size={15} /></span><div className="dl-txt"><b>Activités</b><span className="micro">{(ac.items&&ac.items.length)||3} expériences famille</span></div><b className="dl-price">{devisFmt(ac.total)} €</b></div>
+      </div>
+      <div className="devis-total"><span>Total estimé</span><b>{devisFmt(pr.total)} €</b></div>
+      {m.budget>0 && <div className="micro" style={{ marginTop:4, color: within?'var(--success)':'var(--warning)', fontWeight:600 }}>{within?<React.Fragment><Icon n="check" size={12} /> Dans votre budget de {devisFmt(m.budget)} €</React.Fragment>:<React.Fragment><Icon n="info" size={12} /> Légèrement au-dessus de {devisFmt(m.budget)} € — je peux ajuster</React.Fragment>}</div>}
+      <button className="btn btn--primary btn--block" style={{ marginTop:12 }} onClick={onBook}>Réserver ce séjour · {devisFmt(pr.total)} €<Icon n="arrowRight" size={17} /></button>
+      <button className="btn btn--ghost btn--block" style={{ marginTop:6 }} onClick={onDetail}>Voir le détail jour par jour</button>
+    </div>
+  );
+}
+
+Object.assign(window, { ConversationScreen, FlightBubble, DevisBubble });

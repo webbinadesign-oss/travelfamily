@@ -41,7 +41,17 @@ function BookingScreen({ booking, go }) {
     return ()=>{ cancelled=true; };
   }, []);
 
-  const pax = (travelers||[]).length || 4;
+  // editable party size — starts from memory/booking, fully adjustable
+  const [adults, setAdults] = React.useState(null);
+  const [children, setChildren] = React.useState(null);
+  React.useEffect(()=>{
+    if(adults!==null) return;
+    if(travelers===null) return;
+    const ad=(travelers||[]).filter(t=>!/enfant|child|bébé|kid/i.test((t.sub||'')+(t.name||''))).length;
+    const ch=(travelers||[]).length-ad;
+    setAdults(Math.max(1, ad||2)); setChildren(Math.max(0, ch|| (b.package&&b.package.travelers?Math.max(0,b.package.travelers-2):2)));
+  }, [travelers]);
+  const pax = (adults||0)+(children||0) || (travelers||[]).length || 4;
   const unit = flight.price || 0;
   const base = unit * pax;
 
@@ -163,16 +173,25 @@ function BookingScreen({ booking, go }) {
               </div>
             </div>
             <div className="card card--pad">
-              <h4 style={{ fontSize:15, marginBottom:10 }}>Voyageurs</h4>
-              {(travelers||[]).map((t,i)=>(
-                <div key={i} className="row gap3" style={{ alignItems:'center', padding:'7px 0', borderBottom:i<pax-1?'1px solid var(--border)':'none' }}>
-                  <div className="trav-ic"><Icon n="user" size={16} /></div>
-                  <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>{t.name}</b><div className="micro">{t.sub}</div></div>
+              <h4 style={{ fontSize:15, marginBottom:4 }}>Voyageurs</h4>
+              <div className="micro" style={{ marginBottom:12 }}>Ajustez votre famille — le prix se met à jour automatiquement.</div>
+              <div className="row between trav-row">
+                <div><b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Adultes</b><div className="micro">12 ans et plus</div></div>
+                <div className="stepper">
+                  <button type="button" className="stp-btn" onClick={()=>setAdults(a=>Math.max(1,(a||1)-1))} disabled={(adults||1)<=1} aria-label="Moins d'adultes">−</button>
+                  <span className="stp-val">{adults||1}</span>
+                  <button type="button" className="stp-btn" onClick={()=>setAdults(a=>Math.min(9,(a||1)+1))} aria-label="Plus d'adultes">+</button>
                 </div>
-              ))}
-              {window.WebbinaAuth && window.WebbinaAuth.getUserId && window.WebbinaAuth.getUserId()
-                ? <div className="micro" style={{ color:'var(--success)', marginTop:8 }}><Icon n="check" size={12} /> Pré-rempli depuis votre mémoire voyage</div>
-                : <div className="micro" style={{ color:'var(--text-muted)', marginTop:8 }}>Connectez-vous pour pré-remplir automatiquement votre famille.</div>}
+              </div>
+              <div className="row between trav-row">
+                <div><b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Enfants</b><div className="micro">0 à 11 ans</div></div>
+                <div className="stepper">
+                  <button type="button" className="stp-btn" onClick={()=>setChildren(c=>Math.max(0,(c||0)-1))} disabled={(children||0)<=0} aria-label="Moins d'enfants">−</button>
+                  <span className="stp-val">{children||0}</span>
+                  <button type="button" className="stp-btn" onClick={()=>setChildren(c=>Math.min(9,(c||0)+1))} aria-label="Plus d'enfants">+</button>
+                </div>
+              </div>
+              <div className="micro" style={{ marginTop:10, color:'var(--text-2)' }}><Icon n="users" size={12} /> {pax} voyageur{pax>1?'s':''} au total</div>
             </div>
             <PriceBlock unit={unit} pax={pax} base={base} fee={fee} total={total} label={quote&&quote.label} />
             <button className="btn btn--primary btn--block" onClick={()=>setStep(1)}>Procéder au paiement <Icon n="arrowRight" size={18} /></button>

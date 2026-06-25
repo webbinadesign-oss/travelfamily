@@ -5,6 +5,7 @@ import { validate, valid } from '../middleware/validate.js';
 import { env } from '../config/env.js';
 import { duffelService } from '../services/duffel.service.js';
 import { duffelStaysService } from '../services/duffel-stays.service.js';
+import { kiwiService } from '../services/kiwi.service.js';
 import { amadeusService } from '../services/amadeus.service.js';
 import { ApiError } from '../lib/ApiError.js';
 import type { FlightSearchQuery, HotelSearchQuery } from '../types/index.js';
@@ -30,11 +31,39 @@ flightsRouter.get(
   validate(FlightQuery, 'query'),
   asyncHandler(async (req, res) => {
     const q = valid<FlightSearchQuery>(req);
-    // Prefer Duffel (current provider); fall back to Amadeus if only that is set.
-    const items = env.duffelApiKey
-      ? await duffelService.searchFlights(q)
-      : await amadeusService.searchFlights(q);
-    res.json({ items, total: items.length, provider: env.duffelApiKey ? 'duffel' : 'amadeus' });
+    // Query the configured providers IN PARALLEL and merge.
+    //  - Duffel: full-service carriers, bookable in-app.
+    //  - Kiwi/Tequila: low-cost carriers (Ryanair, easyJet, Transavia…).
+    // Either one failing must not kill the whole search.
+    const tasks: Array<Promise<{ src: string; offers: import('../types/index.js').FlightOffer[] }>> = [];
+    if (env.duffelApiKey) {
+      tasks.push(
+        duffelService.searchFlights(q)
+          .then((offers) => ({ src: 'duffel', offers: offers.map((o) => ({ ...o, source: 'duffel' })) }))
+          .catch(() => ({ src: 'duffel', offers: [] })),
+      );
+    } else if (env.amadeusApiKey && env.amadeusApiSecret) {
+      tasks.push(
+        amadeusService.searchFlights(q)
+          .then((offers) => ({ src: 'amadeus', offers: offers.map((o) => ({ ...o, source: 'amadeus' })) }))
+          .catch(() => ({ src: 'amadeus', offers: [] })),
+      );
+    }
+    if (env.kiwiApiKey) {
+      tasks.push(
+        kiwiService.searchFlights(q)
+          .then((offers) => ({ src: 'kiwi', offers }))
+          .catch(() => ({ src: 'kiwi', offers: [] })),
+      );
+    }
+    if (tasks.length === 0) {
+      throw ApiError.serviceUnavailable('flights_not_configured', 'Aucune source de vols configurée (Duffel, Kiwi ou Amadeus).');
+    }
+    const settled = await Promise.all(tasks);
+    const providers = settled.filter((s) => s.offers.length).map((s) => s.src);
+    const merged = settled.flatMap((s) => s.offers).sort((a, b) => a.price.amount - b.price.amount);
+    const items = merged.slice(0, q.maxResults ?? 20);
+    res.json({ items, total: items.length, provider: providers.join('+') || 'none', providers });
   }),
 );
 

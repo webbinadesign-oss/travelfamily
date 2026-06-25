@@ -123,6 +123,12 @@ export interface FlightOffer {
   durationIso: string;
   segments: FlightSegment[];
   bookableSeats?: number;
+  /** 'duffel' | 'amadeus' | 'kiwi' — where the offer came from. */
+  source?: string;
+  /** True for low-cost carriers (Kiwi coverage). */
+  lowCost?: boolean;
+  /** Partner booking deep link (Kiwi) — until full in-app booking is approved. */
+  deepLink?: string;
 }
 
 export interface HotelSearchQuery {

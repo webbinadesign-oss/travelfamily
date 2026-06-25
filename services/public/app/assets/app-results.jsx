@@ -221,21 +221,44 @@ function CompareExplain({ children }) {
 }
 
 /* ── Duffel helpers: format real offers into the card shape ─────────────── */
-const AIRLINE_NAMES = { AF:'Air France', KL:'KLM', LH:'Lufthansa', BA:'British Airways', EK:'Emirates', QR:'Qatar Airways', TK:'Turkish Airlines', EY:'Etihad', SQ:'Singapore Airlines', AA:'American Airlines', UA:'United', IB:'Iberia', TP:'TAP Air Portugal', AZ:'ITA Airways', U2:'easyJet', FR:'Ryanair', VY:'Vueling', LX:'SWISS', SN:'Brussels Airlines' };
+const AIRLINE_NAMES = { AF:'Air France', KL:'KLM', LH:'Lufthansa', BA:'British Airways', EK:'Emirates', QR:'Qatar Airways', TK:'Turkish Airlines', EY:'Etihad', SQ:'Singapore Airlines', AA:'American Airlines', UA:'United', IB:'Iberia', TP:'TAP Air Portugal', AZ:'ITA Airways', U2:'easyJet', FR:'Ryanair', VY:'Vueling', LX:'SWISS', SN:'Brussels Airlines', TO:'Transavia', HV:'Transavia', W6:'Wizz Air', DY:'Norwegian', PC:'Pegasus', EW:'Eurowings', V7:'Volotea', FB:'Bulgaria Air', NT:'Binter', I2:'Iberia Express' };
+// Low-cost carrier IATA codes (badge + sorting hints).
+const LOWCOST_CODES = { FR:1, U2:1, VY:1, TO:1, HV:1, W6:1, DY:1, PC:1, EW:1, V7:1, I2:1, '0B':1 };
 function isoToHM(iso){ if(!iso) return ''; const m=/PT(?:(\d+)H)?(?:(\d+)M)?/.exec(iso); if(!m) return ''; const h=m[1]?m[1]+' h':''; const min=m[2]?(' '+m[2]+' min'):''; return (h+min).trim()||'—'; }
+function minToHM(min){ if(min==null||!isFinite(min)||min<=0) return ''; const h=Math.floor(min/60), m=Math.round(min%60); return ((h?h+' h':'')+(m?' '+m+' min':'')).trim()||'—'; }
+function isoToMin(iso){ if(!iso) return null; const m=/PT(?:(\d+)H)?(?:(\d+)M)?/.exec(iso); if(!m) return null; return (m[1]?+m[1]:0)*60+(m[2]?+m[2]:0); }
 function hhmm(dt){ try{ return new Date(dt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+// Carriers we don't recognise / Duffel's sandbox test carrier ("ZZ" = Duffel Airways).
+const TEST_CARRIERS = { ZZ:1, Z:1 };
 function offerToCard(o, i){
   const segs=o.segments||[]; const first=segs[0]||{}; const last=segs[segs.length-1]||{};
   const code=first.carrierCode||'??';
+  // Stops: trust the larger of Duffel's count and (segments - 1).
+  const stops=Math.max(o.stops||0, Math.max(0, segs.length-1));
+  // Duration: prefer the REAL wall-clock between first departure and last arrival
+  // (Duffel sandbox sends a bogus durationIso — e.g. "2 h" for a 7 h gap).
+  let durMin=null;
+  const dep=first.departureAt?Date.parse(first.departureAt):NaN;
+  const arr=last.arrivalAt?Date.parse(last.arrivalAt):NaN;
+  if(isFinite(dep)&&isFinite(arr)&&arr>dep) durMin=Math.round((arr-dep)/60000);
+  const isoMin=isoToMin(o.durationIso);
+  // If wall-clock is missing, fall back to the ISO duration.
+  if(durMin==null) durMin=isoMin;
+  const isTest=!!TEST_CARRIERS[code] || !AIRLINE_NAMES[code];
+  const lowCost=!!o.lowCost || !!LOWCOST_CODES[code];
   return {
     id:o.id||('d'+i), code,
-    airline:AIRLINE_NAMES[code]||code,
-    stops:o.stops||0,
-    dur:isoToHM(o.durationIso),
-    via:(o.stops===0)?'Direct':((o.stops===1)?'1 escale':o.stops+' escales'),
+    airline:AIRLINE_NAMES[code] || (isTest?'Compagnie (données de test)':code),
+    stops,
+    dur:(durMin!=null?minToHM(durMin):isoToHM(o.durationIso)),
+    via:(stops===0)?'Direct':((stops===1)?'1 escale':stops+' escales'),
     price:Math.round(o.price&&o.price.amount||0),
     rating:4.5,
     time:(hhmm(first.departureAt)+' → '+hhmm(last.arrivalAt)),
+    isTest,
+    lowCost,
+    source:o.source||'',
+    deepLink:o.deepLink||'',
     recommended:false,
   };
 }
@@ -390,8 +413,14 @@ function VolsTab({ dest, book }) {
         </div>
       )}
       {note && <div className="micro" style={{ color:'var(--text-muted)', padding:'0 2px' }}>{note}</div>}
+      {state==='live' && flights.some(f=>f.isTest) && (
+        <div className="micro" style={{ display:'flex', gap:8, alignItems:'flex-start', color:'var(--text-2)', background:'color-mix(in oklab, var(--gold-700) 12%, var(--surface))', border:'1px solid color-mix(in oklab, var(--gold-700) 35%, transparent)', borderRadius:'var(--r-md)', padding:'8px 10px' }}>
+          <Icon n="info" size={14} style={{ color:'var(--gold-700)', flex:'none', marginTop:1 }} />
+          <span><b>Mode test Duffel</b> — ces vols sont fictifs (compagnie « ZZ », horaires de démonstration). Passe Duffel en <b>production</b> pour afficher de vrais vols réservables.</span>
+        </div>
+      )}
       {state==='live' && rawBest && <CoherenceBlock offer={rawBest} dest={dest} />}
-      {flights.map(f=>(
+      {state==='live' && flights.map(f=>(
         <div key={f.id} className={`compare-card ${sel===f.id?'sel':''} ${f.recommended?'reco':''}`} onClick={()=>setSel(f.id)}>
           {f.recommended && <div className="reco-tag"><Icon n="sparkles" size={12} />Recommandé par Webbina</div>}
           <div className="row between">
@@ -401,6 +430,7 @@ function VolsTab({ dest, book }) {
                 <b style={{ fontFamily:'var(--font-display)', fontSize:15 }}>{f.airline}</b>
                 <div className="micro">{f.time}</div>
               </div>
+              {f.lowCost && <span className="lcc-badge">Lowcost</span>}
             </div>
             <div style={{ textAlign:'right' }}>
               <b style={{ fontFamily:'var(--font-display)', fontSize:18 }}>{f.price} €</b>
@@ -415,7 +445,23 @@ function VolsTab({ dest, book }) {
           {f.reason && <CompareExplain>{f.reason}</CompareExplain>}
         </div>
       ))}
-      {sel && book && (()=>{ const chosen=flights.find(x=>x.id===sel); return (
+      {state!=='live' && state!=='loading' && (
+        <div className="ai-note" style={{ background:'var(--surface)', border:'1px solid var(--border)', flexDirection:'column', alignItems:'stretch', gap:10 }}>
+          <div className="row gap3" style={{ alignItems:'center' }}>
+            <Avatar size={32} expr="thinking" />
+            <div className="micro" style={{ lineHeight:1.45 }}>
+              Je n'ai pas de vol <b>réservable en direct</b> à te montrer pour {dest&&dest.name} sur ces dates pour l'instant. Regarde les <b>meilleures dates</b> ci-dessus, ou compare les tarifs (lowcosts inclus) juste en dessous. ✈️
+            </div>
+          </div>
+        </div>
+      )}
+      {state==='live' && sel && book && (()=>{ const chosen=flights.find(x=>x.id===sel); if(!chosen) return null;
+        if(chosen.deepLink){ return (
+          <a className="btn btn--primary btn--block book-cta" href={chosen.deepLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration:'none' }}>
+            Réserver sur {chosen.airline} · {chosen.price} €/pers <Icon n="arrowRight" size={18} />
+          </a>
+        ); }
+        return (
         <button className="btn btn--primary btn--block book-cta" onClick={()=>book({ dest, flight: chosen })}>
           Réserver ce vol · {chosen?chosen.price:''} €/pers <Icon n="arrowRight" size={18} />
         </button>

@@ -248,6 +248,9 @@
         return (j && j.dates) || [];
       } catch (e) { return null; }
     },
+
+    /** Assemble a full trip (flight + hotel + activities) into one package. */
+    buildPackage: async function (input) {
       if (!api()) throw new Error('no_backend');
       var r = await fetch(api() + '/api/package', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

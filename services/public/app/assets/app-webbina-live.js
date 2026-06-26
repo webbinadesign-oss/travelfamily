@@ -335,6 +335,29 @@
       return await r.json();
     },
 
+    /** Price-watch (Premium alerte baisse de prix). */
+    getWatches: async function () {
+      var id = uid(); if (!id || !api()) return null;
+      try {
+        var r = await fetch(api() + '/api/watch/' + id, { headers: authHeaders(), cache: 'no-store' });
+        if (!r.ok) return null;
+        return (await r.json()).items || [];
+      } catch (e) { return null; }
+    },
+    addWatch: async function (origin, destination, departDate) {
+      var id = uid(); if (!id || !api()) throw new Error('no_account');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var body = { origin: origin, destination: destination };
+      if (departDate) body.departDate = departDate;
+      var r = await fetch(api() + '/api/watch/' + id, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error('watch_failed');
+      return await r.json();
+    },
+    removeWatch: async function (watchId) {
+      var id = uid(); if (!id || !api()) return;
+      try { await fetch(api() + '/api/watch/' + id + '/' + watchId, { method: 'DELETE', headers: authHeaders() }); } catch (e) {}
+    },
+
     /** Add/register a passport for the logged-in user (private, RLS-protected). */
     addPassport: async function (p) {
       var id = uid(); if (!id || !api()) throw new Error('no_account');

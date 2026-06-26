@@ -54,6 +54,8 @@ export interface Env {
   supabaseSchema: string;
 
   adminEmails: string[];      // e-mails autorisés à l'Espace Gérante (admin)
+  resendApiKey: string;       // Resend — envoi d'e-mails (confirmations)
+  mailFrom: string;           // expéditeur des e-mails
 
   bookingApiUrl: string;
   bookingApiKey: string;
@@ -114,6 +116,8 @@ export const env: Env = {
   supabaseSchema: str('SUPABASE_SCHEMA', 'public'),
 
   adminEmails: list('ADMIN_EMAILS', ['webbinadesign@gmail.com']),
+  resendApiKey: str('RESEND_API_KEY'),
+  mailFrom: str('MAIL_FROM', 'TravelFamily.AI <onboarding@resend.dev>'),
 
   bookingApiUrl: str('BOOKING_API_URL', 'https://demandapi.booking.com/3.2'),
   bookingApiKey: str('BOOKING_API_KEY'),

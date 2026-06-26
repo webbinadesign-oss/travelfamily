@@ -315,8 +315,8 @@ function BookingScreen({ booking, go }) {
               <div className="row between"><span className="micro">Référence</span><b style={{ fontFamily:'var(--font-mono,monospace)', fontSize:13 }}>{ref||'TF-XXXXXX'}</b></div>
               <div className="row between" style={{ marginTop:8 }}><span className="micro">Total payé{payEnabled?'':' (test)'}</span><b style={{ fontFamily:'var(--font-display)' }}>{fmtPrice(total)} €</b></div>
             </div>
-            <button className="btn btn--primary btn--block" style={{ marginTop:18 }} onClick={()=>go('dashboard')}>Voir mes voyages <Icon n="arrowRight" size={18} /></button>
-            <button className="btn btn--secondary btn--block" style={{ marginTop:10 }} onClick={()=>go('home')}>Retour à l'accueil</button>
+            <button className="btn btn--primary btn--block" style={{ marginTop:18 }} onClick={()=>{ try{ const a=JSON.parse(localStorage.getItem('tf_trips_local')||'[]'); if(a[0]){ go('tripdetail', a[0]); return; } }catch(e){} go('dashboard'); }}>Voir ma réservation <Icon n="arrowRight" size={18} /></button>
+            <button className="btn btn--secondary btn--block" style={{ marginTop:10 }} onClick={()=>go('dashboard')}>Mes voyages</button>
           </div>
         )}
       </div>

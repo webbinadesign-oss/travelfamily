@@ -1,10 +1,22 @@
 /* TravelFamily.AI app — Dashboard, Travel memory, Gamification, Profil */
 
 function DashboardScreen({ go, openChat }) {
-  // Real trips aren't persisted yet → show a clean, inviting empty state for a
-  // genuine UX test (no fake "Famille Martin / Bali" pre-filled trip).
   const name = (window.WebbinaAuth && window.WebbinaAuth.getEmail && window.WebbinaAuth.getEmail())
     ? window.WebbinaAuth.getEmail().split('@')[0] : null;
+  const [trips, setTrips] = React.useState([]);
+  React.useEffect(()=>{
+    let alive=true;
+    (async()=>{
+      let local=[]; try{ local = JSON.parse(localStorage.getItem('tf_trips_local')||'[]'); }catch(e){}
+      let remote=[];
+      try{ if(window.WebbinaBackend && WebbinaBackend.getTrips){ const r=await WebbinaBackend.getTrips(); if(r&&r.length) remote=r.map(t=>({ id:t.id, ref:t.ref||'', destination:t.destination||t.title||'', country:t.country||'', total:(t.budget&&t.budget.amount)||0, pax:t.travelersCount||0, createdAt:t.createdAt?new Date(t.createdAt).getTime():0, summary:t.summary||'', remote:true })); } }catch(e){}
+      if(!alive) return;
+      // local first (richest), then remote not already present by ref
+      const seen=new Set(local.map(t=>t.ref));
+      setTrips([...local, ...remote.filter(t=>!seen.has(t.ref))]);
+    })();
+    return ()=>{ alive=false; };
+  }, []);
   return (
     <div className="screen">
       <div style={{ padding:'16px 18px 0' }}>
@@ -15,14 +27,29 @@ function DashboardScreen({ go, openChat }) {
         {name && <div className="micro" style={{ marginTop:2, textTransform:'capitalize' }}>Bonjour {name} 👋</div>}
       </div>
 
-      {/* empty state — no trip yet */}
       <div style={{ padding:'18px' }}>
-        <div className="card card--pad" style={{ textAlign:'center' }}>
-          <LivingWebbina size={72} state="idle" expr="happy" style={{ margin:'0 auto 6px' }} />
-          <h3 style={{ fontSize:19, marginTop:6 }}>Aucun voyage pour l'instant</h3>
-          <p className="micro" style={{ marginTop:6, lineHeight:1.5, maxWidth:'34ch', marginInline:'auto' }}>Dites-moi où vous rêvez d'aller, et je compose votre prochain séjour en famille — vols, hébergement et activités, dans votre budget.</p>
-          <button className="btn btn--primary btn--block" style={{ marginTop:14 }} onClick={()=> openChat ? openChat('home') : go('chat')}><Icon n="sparkles" size={17} />Planifier avec Webbina</button>
-        </div>
+        {trips.length===0 ? (
+          <div className="card card--pad" style={{ textAlign:'center' }}>
+            <LivingWebbina size={72} state="idle" expr="happy" style={{ margin:'0 auto 6px' }} />
+            <h3 style={{ fontSize:19, marginTop:6 }}>Aucun voyage pour l'instant</h3>
+            <p className="micro" style={{ marginTop:6, lineHeight:1.5, maxWidth:'34ch', marginInline:'auto' }}>Dites-moi où vous rêvez d'aller, et je compose votre prochain séjour en famille — vols, hébergement et activités, dans votre budget.</p>
+            <button className="btn btn--primary btn--block" style={{ marginTop:14 }} onClick={()=> openChat ? openChat('home') : go('chat')}><Icon n="sparkles" size={17} />Planifier avec Webbina</button>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {trips.map((t,i)=>(
+              <button key={t.id||i} className="card trip-card" onClick={()=>go('tripdetail', t)}>
+                <div className="trip-thumb" style={t.img?{ backgroundImage:`url(assets/${t.img})` }:{ background:'var(--grad-premium)' }}>{!t.img && <Icon n="plane" size={22} />}</div>
+                <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
+                  <b style={{ fontFamily:'var(--font-display)', fontSize:15.5 }}>{t.destination||'Voyage'}{t.country?', '+t.country:''}</b>
+                  <div className="micro" style={{ marginTop:2 }}>{t.pax?`${t.pax} voyageur${t.pax>1?'s':''} · `:''}{Math.round(t.total||0).toLocaleString('fr-FR')} €</div>
+                  <span className="trip-badge"><Icon n="check" size={11} /> Réservé{t.paid===false?' (test)':''}</span>
+                </div>
+                <Icon n="chevronRight" size={20} style={{ color:'var(--text-muted)', flex:'none' }} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* travel memory (real, from account when available) */}
@@ -41,6 +68,122 @@ function DashboardScreen({ go, openChat }) {
           ))}
           <button className="btn btn--ghost btn--sm" style={{ marginTop:6, alignSelf:'flex-start' }} onClick={()=>go('formalites')}><Icon n="plus" size={16} />Ajouter un document</button>
         </div>
+        {typeof PriceWatchCard!=='undefined' && <PriceWatchCard go={go} />}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Détail d'une réservation ---- */
+function TripDetailScreen({ trip, go }){
+  const t = trip || {};
+  return (
+    <div className="screen" style={{ paddingBottom:30 }}>
+      <div className="sub-head">
+        <button className="icon-btn" onClick={()=>go('dashboard')} aria-label="Retour"><Icon n="arrowLeft" size={22} /></button>
+        <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:17 }}>Ma réservation</b></div>
+      </div>
+      <div className="trip-hero" style={t.img?{ backgroundImage:`url(assets/${t.img})` }:{ background:'var(--grad-premium)' }}>
+        <div className="trip-hero-cap">
+          <span className="trip-badge"><Icon n="check" size={11} /> Confirmé{t.paid===false?' · test':''}</span>
+          <h2 style={{ color:'#fff', fontSize:26, marginTop:6 }}>{t.destination||'Voyage'}</h2>
+          {t.country && <div className="micro" style={{ color:'#fff', opacity:.9 }}>{t.country}</div>}
+        </div>
+      </div>
+      <div style={{ padding:'16px 16px' }}>
+        <div className="card card--pad">
+          <div className="row between"><span className="micro">Référence</span><b style={{ fontFamily:'var(--font-mono,monospace)', fontSize:13 }}>{t.ref||'—'}</b></div>
+          <div className="row between" style={{ marginTop:8 }}><span className="micro">Total</span><b style={{ fontFamily:'var(--font-display)' }}>{Math.round(t.total||0).toLocaleString('fr-FR')} €{t.paid===false?' (test)':''}</b></div>
+          <div className="row between" style={{ marginTop:8 }}><span className="micro">Voyageurs</span><b>{t.pax||(t.travelers&&t.travelers.length)||'—'}</b></div>
+        </div>
+
+        {t.airline && (
+          <div className="card card--pad" style={{ marginTop:12 }}>
+            <h4 style={{ fontSize:14, marginBottom:8 }}>Vol</h4>
+            <div className="row gap3" style={{ alignItems:'center' }}>
+              <span className="fb-logo">{t.code||'✈'}</span>
+              <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:14.5 }}>{t.airline}</b><div className="micro">{[t.origin&&('Départ '+t.origin),t.time,t.via,t.dur].filter(Boolean).join(' · ')}</div></div>
+            </div>
+          </div>
+        )}
+
+        {t.travelers && t.travelers.filter(p=>p.givenName||p.familyName).length>0 && (
+          <div className="card card--pad" style={{ marginTop:12 }}>
+            <h4 style={{ fontSize:14, marginBottom:8 }}>Identités voyageurs</h4>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {t.travelers.filter(p=>p.givenName||p.familyName).map((p,i)=>(
+                <div key={i} className="row between" style={{ fontSize:13.5 }}><b>{p.givenName} {p.familyName}</b><span className="micro">{p.bornOn||''}</span></div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button className="card card--pad trip-link" onClick={()=>go('formalites')}>
+          <div className="mem-ic"><Icon n="shield" size={18} /></div>
+          <b style={{ flex:1, textAlign:'left', fontFamily:'var(--font-display)', fontSize:14.5 }}>Vérifier mes formalités</b>
+          <Icon n="chevronRight" size={18} style={{ color:'var(--text-muted)' }} />
+        </button>
+
+        <div className="micro" style={{ textAlign:'center', color:'var(--text-muted)', marginTop:14, lineHeight:1.5 }}>
+          En cas de besoin, retrouvez l'aide et le bon interlocuteur dans <b>Profil → Aide & SAV</b>.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Premium price-watch card ---- */
+function PriceWatchCard({ go }){
+  const premium = (window.TF && TF.isPremium && TF.isPremium());
+  const [items,setItems]=React.useState(null);
+  const [o,setO]=React.useState(''); const [d,setD]=React.useState(''); const [dt,setDt]=React.useState('');
+  const [busy,setBusy]=React.useState(false);
+  function load(){ if(window.WebbinaBackend && WebbinaBackend.getWatches){ WebbinaBackend.getWatches().then(x=>setItems(x||[])).catch(()=>setItems([])); } else setItems([]); }
+  React.useEffect(load,[]);
+  async function add(){ if(o.length!==3||d.length!==3) return; setBusy(true); try{ await WebbinaBackend.addWatch(o.toUpperCase(),d.toUpperCase(),dt||undefined); setO('');setD('');setDt(''); load(); }catch(e){} setBusy(false); }
+  async function rm(id){ try{ await WebbinaBackend.removeWatch(id); load(); }catch(e){} }
+  if(!premium){
+    return (
+      <div className="card card--pad" style={{ marginTop:14, background:'var(--grad-premium)', color:'#fff', border:'none' }}>
+        <div className="row between" style={{ alignItems:'flex-start' }}>
+          <div style={{ flex:1 }}>
+            <span className="badge badge--premium" style={{ marginBottom:8 }}><Icon n="crown" size={13} />Premium</span>
+            <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:16, marginTop:8 }}>Alerte baisse de prix</div>
+            <div style={{ fontSize:13, opacity:.9, marginTop:4, lineHeight:1.45 }}>Suivez un trajet&nbsp;: Webbina vous prévient dès que le prix baisse.</div>
+          </div>
+          <button className="btn btn--secondary btn--sm" onClick={()=>go('premium')} style={{ flex:'none' }}>Activer</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="card card--pad" style={{ marginTop:14 }}>
+      <div className="row between"><h4 style={{ fontSize:15 }}>Alertes prix</h4><span className="badge badge--premium"><Icon n="crown" size={12} />Premium</span></div>
+      <div className="micro" style={{ margin:'4px 0 10px' }}>Suivez un trajet, on vous prévient quand ça baisse.</div>
+      <div className="watch-add">
+        <input className="watch-in" placeholder="MPL" maxLength="3" value={o} onChange={e=>setO(e.target.value.replace(/[^a-zA-Z]/g,''))} />
+        <Icon n="arrowRight" size={16} style={{ color:'var(--text-muted)' }} />
+        <input className="watch-in" placeholder="LIS" maxLength="3" value={d} onChange={e=>setD(e.target.value.replace(/[^a-zA-Z]/g,''))} />
+        <input className="watch-in date" type="date" value={dt} onChange={e=>setDt(e.target.value)} />
+        <button className="btn btn--primary btn--sm" disabled={busy||o.length!==3||d.length!==3} onClick={add}>Suivre</button>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:12 }}>
+        {items===null ? <div className="micro">Chargement…</div> :
+         items.length===0 ? <div className="micro" style={{ color:'var(--text-muted)' }}>Aucun trajet suivi.</div> :
+         items.map(w=>(
+          <div key={w.id} className={'watch-row'+(w.dropped?' drop':'')}>
+            <div style={{ flex:1 }}>
+              <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>{w.origin} → {w.destination}</b>
+              <div className="micro">{w.departDate||'Toutes dates'}</div>
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <b style={{ fontFamily:'var(--font-display)' }}>{w.currentPrice} {w.currency==='EUR'?'€':w.currency}</b>
+              {w.dropped ? <div className="micro" style={{ color:'var(--success)' }}>▼ −{w.dropAmount} € ({w.dropPct}%)</div>
+                         : <div className="micro" style={{ color:'var(--text-muted)' }}>réf. {w.refPrice} €</div>}
+            </div>
+            <button className="icon-btn" onClick={()=>rm(w.id)} aria-label="Retirer"><Icon n="x" size={16} /></button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -234,4 +377,4 @@ function PremiumScreen({ go }) {
   );
 }
 
-Object.assign(window, { DashboardScreen, BadgesScreen, ProfilScreen, PremiumScreen });
+Object.assign(window, { DashboardScreen, TripDetailScreen, BadgesScreen, ProfilScreen, PremiumScreen });

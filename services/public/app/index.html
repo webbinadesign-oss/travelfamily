@@ -441,6 +441,22 @@
   .pax-field span{ font:700 11px var(--font-display); color:var(--text-2); }
   .pax-field input, .pax-field select{ padding:9px 10px; border:1px solid var(--border); border-radius:var(--r-sm); font:500 13.5px var(--font-body); background:var(--surface); color:var(--text); box-sizing:border-box; }
 
+  /* ===== PRICE WATCH ===== */
+  .watch-add{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .watch-in{ width:62px; text-transform:uppercase; padding:9px 8px; border:1px solid var(--border); border-radius:var(--r-sm); font:700 13px var(--font-display); background:var(--surface); color:var(--text); text-align:center; box-sizing:border-box; }
+  .watch-in.date{ width:140px; text-transform:none; font-weight:500; }
+  .watch-row{ display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-sunk); }
+  .watch-row.drop{ border-color:color-mix(in srgb, var(--success,#15A34A) 45%, transparent); background:color-mix(in srgb, var(--success,#15A34A) 8%, transparent); }
+
+  /* ===== TRIP CARD / DETAIL ===== */
+  .trip-card{ display:flex; align-items:center; gap:12px; width:100%; padding:12px; cursor:pointer; }
+  .trip-thumb{ width:58px; height:58px; border-radius:14px; flex:none; background-size:cover; background-position:center; display:grid; place-items:center; color:#fff; }
+  .trip-badge{ display:inline-flex; align-items:center; gap:4px; margin-top:6px; font:700 10.5px var(--font-display); color:var(--success,#15A34A); background:var(--success-bg,#E7F6EE); border-radius:var(--r-pill); padding:2px 8px; }
+  .trip-hero{ height:170px; background-size:cover; background-position:center; position:relative; display:flex; align-items:flex-end; }
+  .trip-hero::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg,transparent 40%,rgba(15,23,42,.6) 100%); }
+  .trip-hero-cap{ position:relative; z-index:1; padding:16px; }
+  .trip-link{ display:flex; align-items:center; gap:12px; width:100%; margin-top:12px; cursor:pointer; }
+
 
   /* ===== SPONSORED (free tier) ===== */
   .spons-row{ padding:6px 18px 2px; }

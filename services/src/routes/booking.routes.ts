@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
 import { quote, commissionPolicy, type FeeCategory } from '../services/pricing.service.js';
 import { stripeService } from '../services/stripe.service.js';
+import { mailService } from '../services/mail.service.js';
 import { getUserFromToken } from '../services/auth.service.js';
 import { isAdminEmail } from '../middleware/auth.js';
 import { env } from '../config/env.js';
@@ -77,3 +78,20 @@ bookingRouter.post(
     });
   }),
 );
+
+const ConfirmBody = z.object({
+  email: z.string().email(),
+  destination: z.string().max(120),
+  ref: z.string().max(40),
+  total: z.coerce.number().min(0),
+  pax: z.coerce.number().int().min(1).max(12).optional(),
+});
+
+/** POST /api/booking/confirm — send a confirmation e-mail (no-op if mail not configured). */
+bookingRouter.post('/confirm', validate(ConfirmBody, 'body'), asyncHandler(async (req, res) => {
+  const b = valid<z.infer<typeof ConfirmBody>>(req);
+  const sent = await mailService.sendBookingConfirmation(b.email, {
+    destination: b.destination, ref: b.ref, total: b.total, pax: b.pax ?? 1,
+  });
+  res.json({ ok: true, emailSent: sent });
+}));

@@ -114,6 +114,7 @@ function App() {
   else if(screen==='booking') view=<BookingScreen booking={booking} go={go} />;
   else if(screen==='formalites') view=<FormalitesScreen go={go} />;
   else if(screen==='dashboard') view=<DashboardScreen go={go} openChat={openChat} />;
+  else if(screen==='tripdetail') view=<TripDetailScreen trip={trip} go={go} />;
   else if(screen==='badges') view=<BadgesScreen go={go} />;
   else if(screen==='aide') view=<HelpScreen go={go} openChat={openChat} />;
   else if(screen==='favoris') view=<FavorisScreen go={go} favs={favs} toggleFav={toggleFav} />;

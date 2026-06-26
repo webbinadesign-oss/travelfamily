@@ -67,6 +67,26 @@ flightsRouter.get(
   }),
 );
 
+const OrderBody = z.object({
+  offerId: z.string().min(3),
+  passengers: z.array(z.object({
+    title: z.string().optional(),
+    givenName: z.string().min(1),
+    familyName: z.string().min(1),
+    bornOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    gender: z.string().optional(),
+    email: z.string().email().optional(),
+    phoneNumber: z.string().optional(),
+  })).min(1),
+});
+
+/** POST /api/flights/order — issue a real flight order (Duffel; test balance in test mode). */
+flightsRouter.post('/order', validate(OrderBody, 'body'), asyncHandler(async (req, res) => {
+  if (!env.duffelApiKey) throw ApiError.serviceUnavailable('Réservation de vol indisponible.');
+  const b = valid<z.infer<typeof OrderBody>>(req);
+  res.status(201).json(await duffelService.createOrder(b));
+}));
+
 const HotelQuery = z.object({
   cityCode: z.string().length(3).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),

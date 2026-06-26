@@ -125,4 +125,63 @@ export const duffelService = {
     const mapped = offers.map(mapOffer).sort((a, b) => a.price.amount - b.price.amount);
     return mapped.slice(0, q.maxResults ?? 20);
   },
+
+  /** Fetch a single live offer (to get current price + passenger ids before ordering). */
+  async getOffer(offerId: string): Promise<{ id: string; amount: string; currency: string; passengerIds: string[]; expiresAt?: string }> {
+    assertConfigured();
+    const res = await httpRequest<{ data: { id: string; total_amount: string; total_currency: string; expires_at?: string; passengers: Array<{ id: string }> } }>(
+      `${BASE}/air/offers/${offerId}?return_available_services=false`,
+      { method: 'GET', provider: 'duffel', timeoutMs: 20_000, headers: headers() },
+    );
+    const d = res.data;
+    return {
+      id: d.id, amount: d.total_amount, currency: d.total_currency,
+      passengerIds: (d.passengers || []).map((p) => p.id),
+      ...(d.expires_at ? { expiresAt: d.expires_at } : {}),
+    };
+  },
+
+  /**
+   * Issue a real flight order for a selected offer.
+   * In Duffel TEST mode the payment uses the test balance (no real money).
+   * passengers must be provided in the same order as the offer's passengers.
+   */
+  async createOrder(input: {
+    offerId: string;
+    passengers: Array<{ title?: string; givenName: string; familyName: string; bornOn?: string; gender?: string; email?: string; phoneNumber?: string }>;
+  }): Promise<{ id: string; bookingReference: string; status: string; amount: string; currency: string }> {
+    assertConfigured();
+    const offer = await this.getOffer(input.offerId);
+    const passengers = offer.passengerIds.map((id, i) => {
+      const p = input.passengers[i] || input.passengers[0];
+      return {
+        id,
+        title: (p?.title || 'mr').toLowerCase(),
+        gender: (p?.gender || 'm').toLowerCase(),
+        given_name: p?.givenName || 'Voyageur',
+        family_name: p?.familyName || 'TravelFamily',
+        born_on: p?.bornOn || '1990-01-01',
+        email: p?.email || 'contact@travelfamily.ai',
+        phone_number: p?.phoneNumber || '+33600000000',
+      };
+    });
+    const body = {
+      data: {
+        type: 'instant',
+        selected_offers: [input.offerId],
+        passengers,
+        payments: [{ type: 'balance', amount: offer.amount, currency: offer.currency }],
+      },
+    };
+    const res = await httpRequest<{ data: { id: string; booking_reference: string; live_mode: boolean; total_amount: string; total_currency: string } }>(
+      `${BASE}/air/orders`,
+      { method: 'POST', provider: 'duffel', timeoutMs: 30_000, headers: headers(), body },
+    );
+    const d = res.data;
+    return {
+      id: d.id, bookingReference: d.booking_reference,
+      status: d.live_mode ? 'confirmed' : 'confirmed_test',
+      amount: d.total_amount, currency: d.total_currency,
+    };
+  },
 };

@@ -321,6 +321,20 @@
       return await r.json();
     },
 
+    /** Issue a real flight order (Duffel). offerId = the selected live offer id;
+        passengers = [{givenName, familyName, bornOn?, gender?, email?, phoneNumber?}].
+        In Duffel TEST mode this books on the test balance (no real money). */
+    createFlightOrder: async function (offerId, passengers) {
+      if (!api()) throw new Error('no_backend');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var r = await fetch(api() + '/api/flights/order', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({ offerId: offerId, passengers: passengers || [] }),
+      });
+      if (!r.ok) throw new Error('order_failed');
+      return await r.json();
+    },
+
     /** Add/register a passport for the logged-in user (private, RLS-protected). */
     addPassport: async function (p) {
       var id = uid(); if (!id || !api()) throw new Error('no_account');

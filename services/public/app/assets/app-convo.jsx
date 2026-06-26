@@ -21,6 +21,7 @@ function answerLabel(qid, val) {
 }
 
 function webbinaOpener(ctx){
+  if(ctx==='sav') return savOpener(null);
   if(ctx && ctx!=='home' && CONVO_INTRO[ctx]) return CONVO_INTRO[ctx];
   const h = new Date().getHours();
   const hi = (h>=6 && h<18) ? 'Bonjour' : 'Bonsoir';
@@ -32,10 +33,22 @@ function webbinaOpener(ctx){
   return openers[Math.floor(Math.random()*openers.length)];
 }
 
+/* Ouverture du mode SAV — ancrée sur la réservation réelle si fournie.
+   Webbina oriente vers LE prestataire exact, sans inventer de lien générique. */
+function savOpener(seed){
+  const bk = seed && seed.booking;
+  if(bk){
+    const who = bk.providerName || 'votre prestataire';
+    const ref = bk.ref ? ` (dossier <b>${bk.ref}</b>)` : '';
+    return `Je suis là pour vous aider sur votre réservation <b>${who}</b>${ref}. Dites-moi ce qui se passe — modification, annulation, retard&nbsp;? Je vous indique la marche exacte et le bon contact <b>${who}</b>, jamais un numéro au hasard.`;
+  }
+  return 'Je suis là pour vous aider. 💛 De quelle réservation s\'agit-il, ou quelle est votre question&nbsp;? Pour un souci sur un vol ou un hôtel, je vous orienterai vers <b>le prestataire exact</b> de votre dossier.';
+}
+
 function ConversationScreen({ ctx, seed, go }) {
   const QS = TF.QUESTIONS;
   const _restored = (window.__TF_CONVO && window.__TF_CONVO.ctx===ctx && (window.__TF_CONVO.msgs||[]).length>1);
-  const [msgs, setMsgs] = React.useState(()=> _restored ? window.__TF_CONVO.msgs : [{ who:'ai', t: webbinaOpener(ctx), expr: ctx==='04'?'surprised':'happy' }]);
+  const [msgs, setMsgs] = React.useState(()=> _restored ? window.__TF_CONVO.msgs : [{ who:'ai', t: ctx==='sav' ? savOpener(seed) : webbinaOpener(ctx), expr: ctx==='sav'?'reassuring':(ctx==='04'?'surprised':'happy') }]);
   const [step, setStep] = React.useState(-1);      // -1 = intro pending
   const [typing, setTyping] = React.useState(false);
   const [phase, setPhase] = React.useState('idle'); // idle | ask | searching | done
@@ -295,7 +308,10 @@ function ConversationScreen({ ctx, seed, go }) {
         // Live mode: if a parcours seed is present, auto-send it so Webbina
         // immediately reacts and asks the right funnel questions. Otherwise greet.
         setPhase('chat');
-        if(seed){
+        if(ctx==='sav'){
+          // SAV: keep the grounded opener, never auto-send the seed object.
+          setMsgs(m=> m.length ? m : [{ who:'ai', t: savOpener(seed), expr:'reassuring' }]);
+        } else if(seed && typeof seed==='string'){
           setTimeout(()=>{ if(!cancelled) sendFreeText(seed); }, 350);
         } else {
           setMsgs(m=>{

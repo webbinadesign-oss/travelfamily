@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TravelFamily.AI — Espace Gérante</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Mulish:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/ds.css" />
+<style>
+  html,body{ height:100%; } body{ margin:0; background:
+    radial-gradient(120% 80% at 0% 0%, #EAF2FF 0%, transparent 45%),
+    radial-gradient(120% 80% at 100% 0%, #E6FBFF 0%, transparent 42%), #EDF1F7; }
+  #app{ min-height:100%; }
+  .ag-shell{ display:flex; min-height:100vh; }
+  .ag-side{ width:230px; flex:none; background:var(--surface); border-right:1px solid var(--border); padding:18px 14px; display:flex; flex-direction:column; gap:5px; }
+  .ag-brand{ display:flex; align-items:center; gap:9px; padding:6px 8px 16px; }
+  .ag-brand .logo{ width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,var(--ocean-700),var(--turq-700,#0E8FA3)); display:grid; place-items:center; color:#fff; font-family:var(--font-display); font-weight:700; font-size:18px; }
+  .ag-brand b{ font-family:var(--font-display); font-size:15px; } .ag-brand .sub{ font-size:11px; color:var(--text-muted); }
+  .ag-nav{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--r-md); border:none; background:none; cursor:pointer; font:600 14px var(--font-display); color:var(--text-2); text-align:left; width:100%; }
+  .ag-nav.on{ background:var(--ocean-50); color:var(--ocean-700); }
+  .ag-nav:hover{ background:var(--surface-sunk); }
+  .ag-main{ flex:1; padding:26px 30px; max-width:1000px; }
+  .ag-h{ font-family:var(--font-display); font-size:24px; font-weight:700; margin:0 0 4px; }
+  .ag-sub{ color:var(--text-muted); font-size:13.5px; margin:0 0 20px; }
+  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+  .kpi{ background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px; }
+  .kpi .n{ font-family:var(--font-display); font-size:28px; font-weight:800; color:var(--ocean-700); }
+  .kpi .l{ font-size:12.5px; color:var(--text-muted); margin-top:2px; }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; }
+  .row{ display:flex; gap:12px; } .between{ justify-content:space-between; align-items:center; }
+  input.ag-in, textarea.ag-in{ width:100%; padding:11px 13px; border:1px solid var(--border); border-radius:var(--r-md); font:500 14px var(--font-body); background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .btn-sm{ padding:8px 13px; font-size:13px; border-radius:var(--r-md); border:none; cursor:pointer; font-family:var(--font-display); font-weight:600; }
+  .b-prim{ background:var(--ocean-700); color:#fff; } .b-ghost{ background:var(--surface-sunk); color:var(--text); }
+  .b-danger{ background:var(--coral-50,#FCEBEB); color:var(--coral-700,#D43B3B); } .b-ok{ background:var(--success-bg,#E7F6EE); color:var(--success,#15A34A); }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th,td{ text-align:left; padding:11px 10px; border-bottom:1px solid var(--border); }
+  th{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); }
+  tr.click{ cursor:pointer; } tr.click:hover td{ background:var(--surface-sunk); }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:99px; }
+  .p-ok{ background:var(--success-bg,#E7F6EE); color:var(--success,#15A34A); } .p-off{ background:var(--coral-50,#FCEBEB); color:var(--coral-700,#D43B3B); }
+  .p-prem{ background:var(--gold-50,#FBF1DA); color:var(--gold-700,#B8841C); }
+  .drawer-bg{ position:fixed; inset:0; background:rgba(11,26,51,.4); display:flex; justify-content:flex-end; z-index:50; }
+  .drawer{ width:480px; max-width:94vw; height:100%; background:var(--surface); overflow:auto; padding:22px 24px; box-shadow:-10px 0 40px rgba(0,0,0,.2); }
+  .login-wrap{ min-height:100vh; display:grid; place-items:center; }
+  .login{ width:360px; max-width:90vw; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-xl,20px); padding:30px 28px; box-shadow:0 20px 60px rgba(11,26,51,.14); }
+  .err{ background:var(--coral-50,#FCEBEB); color:var(--coral-700,#D43B3B); padding:9px 12px; border-radius:var(--r-md); font-size:13px; margin-top:10px; }
+  .muted{ color:var(--text-muted); font-size:12.5px; }
+  .field-lbl{ font:700 12px var(--font-display); color:var(--text-2); margin:14px 0 5px; display:block; }
+  .sec-divider{ height:1px; background:var(--border); margin:18px 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="assets/webbina-config.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+const API = (window.WEBBINA_API || '').replace(/\/+$/, '');
+const TKEY = 'webbina_admin_token';
+
+/* ── tiny API client (Bearer token) ── */
+let TOKEN = sessionStorage.getItem(TKEY) || '';
+async function apiGet(path){
+  const r = await fetch(API + path, { headers:{ Authorization:'Bearer '+TOKEN }, cache:'no-store' });
+  if(!r.ok) throw new Error((await r.json().catch(()=>({}))).message || ('Erreur '+r.status));
+  return r.json();
+}
+async function apiPost(path, body){
+  const r = await fetch(API + path, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+TOKEN }, body:JSON.stringify(body||{}) });
+  if(!r.ok) throw new Error((await r.json().catch(()=>({}))).message || ('Erreur '+r.status));
+  return r.json();
+}
+const euro = (n)=> (Math.round((Number(n)||0)*100)/100).toLocaleString('fr-FR') + ' €';
+const dt = (s)=> s ? new Date(s).toLocaleDateString('fr-FR') : '—';
+
+/* ── Login (Supabase password) ── */
+function Login({ onIn }){
+  const [email,setEmail]=React.useState('');
+  const [pw,setPw]=React.useState('');
+  const [err,setErr]=React.useState('');
+  const [busy,setBusy]=React.useState(false);
+  async function submit(e){
+    e.preventDefault(); setErr(''); setBusy(true);
+    try{
+      const cfg = await (await fetch(API+'/api/config',{cache:'no-store'})).json();
+      if(!cfg.supabaseUrl || !cfg.supabaseAnonKey) throw new Error('Backend non configuré (Supabase).');
+      const r = await fetch(cfg.supabaseUrl.replace(/\/+$/,'')+'/auth/v1/token?grant_type=password', {
+        method:'POST', headers:{ 'Content-Type':'application/json', apikey:cfg.supabaseAnonKey },
+        body:JSON.stringify({ email, password:pw }),
+      });
+      const j = await r.json();
+      if(!r.ok || !j.access_token) throw new Error(j.error_description || j.msg || 'Identifiants incorrects.');
+      TOKEN = j.access_token;
+      const me = await fetch(API+'/api/admin/me', { headers:{ Authorization:'Bearer '+TOKEN } });
+      if(!me.ok) throw new Error('Ce compte n\'est pas autorisé à l\'Espace Gérante.');
+      sessionStorage.setItem(TKEY, TOKEN);
+      onIn((await me.json()).email || email);
+    }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
+  }
+  return (
+    <div className="login-wrap">
+      <form className="login" onSubmit={submit}>
+        <div className="row" style={{ alignItems:'center', gap:10, marginBottom:6 }}>
+          <div style={{ width:38, height:38, borderRadius:11, background:'linear-gradient(135deg,var(--ocean-700),#0E8FA3)', display:'grid', placeItems:'center', color:'#fff', fontFamily:'var(--font-display)', fontWeight:700 }}>T</div>
+          <div><b style={{ fontFamily:'var(--font-display)', fontSize:16 }}>Espace Gérante</b><div className="muted">TravelFamily.AI</div></div>
+        </div>
+        <p className="muted" style={{ margin:'4px 0 12px' }}>Connexion réservée à la gérante.</p>
+        <label className="field-lbl">E-mail</label>
+        <input className="ag-in" type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" required />
+        <label className="field-lbl">Mot de passe</label>
+        <input className="ag-in" type="password" value={pw} onChange={e=>setPw(e.target.value)} autoComplete="current-password" required />
+        {err && <div className="err">{err}</div>}
+        <button className="btn-sm b-prim" style={{ width:'100%', marginTop:16, padding:'12px' }} disabled={busy}>{busy?'Connexion…':'Se connecter'}</button>
+        <p className="muted" style={{ marginTop:12, lineHeight:1.5 }}>C'est votre compte habituel (e-mail autorisé dans <code>ADMIN_EMAILS</code> côté serveur).</p>
+      </form>
+    </div>
+  );
+}
+
+/* ── Dashboard ── */
+function Dashboard(){
+  const [s,setS]=React.useState(null);
+  const [err,setErr]=React.useState('');
+  React.useEffect(()=>{ apiGet('/api/admin/stats').then(setS).catch(e=>setErr(e.message)); },[]);
+  const cards = s ? [
+    ['Clients', s.users],['Premium actifs', s.premium],['Comptes suspendus', s.suspended],
+    ['Réservations', s.bookings],['Volume d\'affaires', euro(s.gmv)],['SAV ouverts', s.openTickets],
+  ] : [];
+  return (
+    <div>
+      <h1 className="ag-h">Tableau de bord</h1>
+      <p className="ag-sub">Vue d'ensemble de votre activité.</p>
+      {err && <div className="err">{err}</div>}
+      {!s ? <p className="muted">Chargement…</p> : (
+        <div className="kpi-grid">{cards.map((c,i)=><div className="kpi" key={i}><div className="n">{c[1]}</div><div className="l">{c[0]}</div></div>)}</div>
+      )}
+      <div className="card" style={{ marginTop:18 }}>
+        <b style={{ fontFamily:'var(--font-display)' }}>🧳 Vos réservations personnelles (tarif gérante)</b>
+        <p className="muted" style={{ marginTop:6, lineHeight:1.55 }}>Connectez-vous à l'application avec ce même compte : vos réservations s'affichent automatiquement <b>au tarif net, sans frais de service Webbina</b> (0 commission). Les éventuels tarifs « agent de voyage » côté partenaires (ex. RateHawk en B2B) s'ajoutent quand ils existent — la plupart des affiliés (vols, activités) restent au prix public, dont on retire simplement notre marge.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Clients ── */
+function Clients(){
+  const [list,setList]=React.useState(null);
+  const [q,setQ]=React.useState('');
+  const [sel,setSel]=React.useState(null);
+  const [err,setErr]=React.useState('');
+  function load(s){ apiGet('/api/admin/users'+(s?('?search='+encodeURIComponent(s)):'')).then(d=>setList(d.items)).catch(e=>setErr(e.message)); }
+  React.useEffect(()=>{ load(''); },[]);
+  return (
+    <div>
+      <h1 className="ag-h">Clients</h1>
+      <p className="ag-sub">Rechercher, consulter une fiche, gérer l'accès et les gestes commerciaux.</p>
+      <div className="row" style={{ marginBottom:14 }}>
+        <input className="ag-in" placeholder="Rechercher par e-mail…" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load(q)} />
+        <button className="btn-sm b-prim" onClick={()=>load(q)}>Chercher</button>
+      </div>
+      {err && <div className="err">{err}</div>}
+      <div className="card" style={{ padding:0, overflow:'hidden' }}>
+        <table>
+          <thead><tr><th>E-mail</th><th>Statut</th><th>Premium</th><th>Inscrit</th></tr></thead>
+          <tbody>
+            {!list ? <tr><td colSpan="4" className="muted" style={{ padding:18 }}>Chargement…</td></tr> :
+             list.length===0 ? <tr><td colSpan="4" className="muted" style={{ padding:18 }}>Aucun client.</td></tr> :
+             list.map(u=>(
+              <tr key={u.id} className="click" onClick={()=>setSel(u.id)}>
+                <td><b>{u.email}</b></td>
+                <td>{u.active ? <span className="pill p-ok">Actif</span> : <span className="pill p-off">Suspendu</span>}</td>
+                <td>{u.premium ? <span className="pill p-prem">Premium</span> : <span className="muted">—</span>}</td>
+                <td className="muted">{dt(u.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {sel && <ClientDrawer id={sel} onClose={()=>{ setSel(null); load(q); }} />}
+    </div>
+  );
+}
+
+function ClientDrawer({ id, onClose }){
+  const [d,setD]=React.useState(null);
+  const [err,setErr]=React.useState('');
+  const [msg,setMsg]=React.useState('');
+  const [months,setMonths]=React.useState(1);
+  const [credit,setCredit]=React.useState(10);
+  const [reason,setReason]=React.useState('');
+  function load(){ apiGet('/api/admin/users/'+id).then(setD).catch(e=>setErr(e.message)); }
+  React.useEffect(load,[id]);
+  async function act(fn, ok){ setErr(''); setMsg(''); try{ await fn(); setMsg(ok); load(); }catch(e){ setErr(e.message); } }
+  return (
+    <div className="drawer-bg" onClick={onClose}>
+      <div className="drawer" onClick={e=>e.stopPropagation()}>
+        <div className="row between"><b style={{ fontFamily:'var(--font-display)', fontSize:18 }}>Fiche client</b><button className="btn-sm b-ghost" onClick={onClose}>Fermer</button></div>
+        {err && <div className="err">{err}</div>}
+        {msg && <div className="err" style={{ background:'var(--success-bg,#E7F6EE)', color:'var(--success,#15A34A)' }}>{msg}</div>}
+        {!d ? <p className="muted" style={{ marginTop:16 }}>Chargement…</p> : (
+          <div>
+            <p style={{ margin:'12px 0 2px', fontWeight:700 }}>{d.email}</p>
+            <div className="row" style={{ gap:8 }}>
+              {d.active ? <span className="pill p-ok">Actif</span> : <span className="pill p-off">Suspendu</span>}
+              {d.premium && <span className="pill p-prem">Premium → {dt(d.premiumUntil)}</span>}
+            </div>
+
+            <div className="sec-divider"></div>
+            <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Fidélité</b>
+            <div className="row" style={{ gap:14, marginTop:8, flexWrap:'wrap' }}>
+              <div><div className="muted">Palier</div><b>{d.loyalty?.tierName||'—'}</b></div>
+              <div><div className="muted">Cagnotte</div><b>{euro(d.loyalty?.balance)}</b></div>
+              <div><div className="muted">Voyages validés</div><b>{d.loyalty?.validatedTrips ?? 0}</b></div>
+              <div><div className="muted">Continents</div><b>{d.loyalty?.continents ?? 0}</b></div>
+            </div>
+
+            <div className="sec-divider"></div>
+            <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Gestes commerciaux</b>
+            <label className="field-lbl">Offrir un pass Premium (mois)</label>
+            <div className="row"><input className="ag-in" type="number" min="1" max="120" value={months} onChange={e=>setMonths(+e.target.value)} /><button className="btn-sm b-prim" onClick={()=>act(()=>apiPost('/api/admin/users/'+id+'/premium',{months}),'Pass Premium accordé.')}>Offrir</button></div>
+            <label className="field-lbl">Créditer la cagnotte (€)</label>
+            <div className="row"><input className="ag-in" type="number" value={credit} onChange={e=>setCredit(+e.target.value)} /><button className="btn-sm b-prim" onClick={()=>act(()=>apiPost('/api/admin/users/'+id+'/cagnotte',{amount:credit,reason}),'Cagnotte créditée.')}>Créditer</button></div>
+            <input className="ag-in" style={{ marginTop:8 }} placeholder="Motif (facultatif)" value={reason} onChange={e=>setReason(e.target.value)} />
+
+            <div className="sec-divider"></div>
+            <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Accès au compte</b>
+            <div className="row" style={{ marginTop:8 }}>
+              {d.active
+                ? <button className="btn-sm b-danger" onClick={()=>act(()=>apiPost('/api/admin/users/'+id+'/active',{active:false}),'Compte suspendu.')}>Suspendre l'accès</button>
+                : <button className="btn-sm b-ok" onClick={()=>act(()=>apiPost('/api/admin/users/'+id+'/active',{active:true}),'Compte réactivé.')}>Réactiver l'accès</button>}
+            </div>
+
+            <div className="sec-divider"></div>
+            <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Voyages récents</b>
+            {(d.recentTrips||[]).length===0 ? <p className="muted" style={{ marginTop:6 }}>Aucun.</p> :
+              <ul style={{ margin:'8px 0 0', paddingLeft:18, fontSize:13.5 }}>{d.recentTrips.map((t,i)=><li key={i}>{t.destination||t.title} — <span className="muted">{t.status}</span></li>)}</ul>}
+
+            <div className="sec-divider"></div>
+            <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Passeports <span className="muted">(numéros masqués · RGPD)</span></b>
+            {(d.passports||[]).length===0 ? <p className="muted" style={{ marginTop:6 }}>Aucun.</p> :
+              <ul style={{ margin:'8px 0 0', paddingLeft:18, fontSize:13.5 }}>{d.passports.map((p,i)=><li key={i}>{p.holder||'—'} · {p.country||'—'} · exp. {dt(p.expiresAt)}</li>)}</ul>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── SAV ── */
+function Sav(){
+  const [list,setList]=React.useState(null);
+  const [err,setErr]=React.useState('');
+  const [reply,setReply]=React.useState({});
+  function load(){ apiGet('/api/admin/tickets').then(d=>setList(d.items)).catch(e=>setErr(e.message)); }
+  React.useEffect(load,[]);
+  async function send(id){ try{ await apiPost('/api/admin/tickets/'+id+'/reply',{ reply:reply[id]||'', status:'closed' }); load(); }catch(e){ setErr(e.message); } }
+  return (
+    <div>
+      <h1 className="ag-h">SAV</h1>
+      <p className="ag-sub">Les demandes écrites des clients (Webbina + la FAQ traitent le reste automatiquement).</p>
+      {err && <div className="err">{err}</div>}
+      {!list ? <p className="muted">Chargement…</p> :
+       list.length===0 ? <div className="card"><p className="muted" style={{ margin:0 }}>Aucune demande en attente. 🎉 Webbina absorbe le niveau 1.</p></div> :
+       list.map(t=>(
+        <div className="card" key={t.id} style={{ marginBottom:12 }}>
+          <div className="row between"><b>{t.subject||'Demande'}</b><span className={'pill '+(t.status==='closed'?'p-ok':'p-prem')}>{t.status}</span></div>
+          <div className="muted" style={{ margin:'4px 0' }}>{t.email||'—'} · {dt(t.created_at)}</div>
+          <p style={{ fontSize:14 }}>{t.message}</p>
+          {t.reply ? <div className="muted" style={{ marginTop:6 }}>Votre réponse : {t.reply}</div> :
+            <div className="row" style={{ marginTop:8 }}>
+              <input className="ag-in" placeholder="Votre réponse…" value={reply[t.id]||''} onChange={e=>setReply(r=>({...r,[t.id]:e.target.value}))} />
+              <button className="btn-sm b-prim" onClick={()=>send(t.id)}>Répondre & clôturer</button>
+            </div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Journal d'audit ── */
+function Audit(){
+  const [list,setList]=React.useState(null);
+  const [err,setErr]=React.useState('');
+  React.useEffect(()=>{ apiGet('/api/admin/audit').then(d=>setList(d.items)).catch(e=>setErr(e.message)); },[]);
+  return (
+    <div>
+      <h1 className="ag-h">Journal</h1>
+      <p className="ag-sub">Traçabilité de vos actions (exigée par le RGPD pour les données sensibles).</p>
+      {err && <div className="err">{err}</div>}
+      <div className="card" style={{ padding:0, overflow:'hidden' }}>
+        <table><thead><tr><th>Date</th><th>Action</th><th>Cible</th></tr></thead>
+          <tbody>{!list?<tr><td colSpan="3" className="muted" style={{padding:18}}>Chargement…</td></tr>:
+            list.length===0?<tr><td colSpan="3" className="muted" style={{padding:18}}>Vide.</td></tr>:
+            list.map(a=><tr key={a.id}><td className="muted">{new Date(a.created_at).toLocaleString('fr-FR')}</td><td><b>{a.action}</b></td><td className="muted">{a.target_user?String(a.target_user).slice(0,8)+'…':'—'}</td></tr>)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── Shell ── */
+function Console({ email, onOut }){
+  const [tab,setTab]=React.useState('dash');
+  const TABS=[['dash','Tableau de bord'],['clients','Clients'],['sav','SAV'],['audit','Journal']];
+  return (
+    <div className="ag-shell">
+      <aside className="ag-side">
+        <div className="ag-brand"><div className="logo">T</div><div><b>Espace Gérante</b><div className="sub">{email}</div></div></div>
+        {TABS.map(t=><button key={t[0]} className={'ag-nav'+(tab===t[0]?' on':'')} onClick={()=>setTab(t[0])}>{t[1]}</button>)}
+        <div style={{ flex:1 }}></div>
+        <button className="ag-nav" onClick={onOut}>Se déconnecter</button>
+      </aside>
+      <main className="ag-main">
+        {tab==='dash' && <Dashboard/>}
+        {tab==='clients' && <Clients/>}
+        {tab==='sav' && <Sav/>}
+        {tab==='audit' && <Audit/>}
+      </main>
+    </div>
+  );
+}
+
+function App(){
+  const [email,setEmail]=React.useState(null);
+  React.useEffect(()=>{
+    if(TOKEN){ fetch(API+'/api/admin/me',{headers:{Authorization:'Bearer '+TOKEN}}).then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.email) setEmail(j.email); }).catch(()=>{}); }
+  },[]);
+  function out(){ TOKEN=''; sessionStorage.removeItem(TKEY); setEmail(null); }
+  return email ? <Console email={email} onOut={out} /> : <Login onIn={setEmail} />;
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+</script>
+</body>
+</html>

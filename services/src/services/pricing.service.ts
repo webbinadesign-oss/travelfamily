@@ -28,12 +28,14 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Compute a transparent fee for a given category. */
+/** Compute a transparent fee for a given category.
+ *  feeMultiplier scales the fee (1 = normal, 0 = agent/net rate, 0.8 = -20% loyalty). */
 export function quote(
   category: FeeCategory,
   base: number,
   pax = 1,
   currency = env.stripeCurrency.toUpperCase(),
+  feeMultiplier = 1,
 ): PriceBreakdown {
   let fee = 0;
   let label = 'Frais de service Webbina';
@@ -75,6 +77,11 @@ export function quote(
     fee = Math.max(fee, env.minFee);
     const cap = base * env.maxMarkupPct;
     if (cap > 0) fee = Math.min(fee, cap);
+  }
+  // Loyalty / agent multiplier (applied AFTER guard rails so 0 = truly net).
+  if (feeMultiplier !== 1) {
+    fee = feeMultiplier <= 0 ? 0 : fee * feeMultiplier;
+    if (feeMultiplier <= 0) label = 'Tarif net — sans frais de service (compte gérante)';
   }
   fee = round2(fee);
 

@@ -10,6 +10,7 @@
  */
 import type { Request, Response, NextFunction } from 'express';
 import { getUserFromToken } from '../services/auth.service.js';
+import { env } from '../config/env.js';
 import { ApiError } from '../lib/ApiError.js';
 
 export interface AuthedRequest extends Request {
@@ -52,4 +53,22 @@ export async function requireUser(req: AuthedRequest, _res: Response, next: Next
 export function userId(req: AuthedRequest): string {
   if (!req.userId) throw ApiError.unauthorized('Utilisateur non identifié.');
   return req.userId;
+}
+
+/** Is this e-mail allowed into the Espace Gérante? (allowlist via ADMIN_EMAILS) */
+export function isAdminEmail(email?: string): boolean {
+  if (!email) return false;
+  return env.adminEmails.map((e) => e.toLowerCase()).includes(email.toLowerCase());
+}
+
+/** Strict admin gate: requires a valid token AND an allow-listed e-mail. */
+export async function requireAdmin(req: AuthedRequest, _res: Response, next: NextFunction): Promise<void> {
+  const token = bearer(req);
+  const user = token ? await getUserFromToken(token) : null;
+  if (!user || !isAdminEmail(user.email)) {
+    return next(ApiError.unauthorized('Accès réservé à la gérante.'));
+  }
+  req.userId = user.id;
+  req.userEmail = user.email;
+  next();
 }

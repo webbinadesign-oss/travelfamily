@@ -4,9 +4,22 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
 import { quote, commissionPolicy, type FeeCategory } from '../services/pricing.service.js';
 import { stripeService } from '../services/stripe.service.js';
+import { getUserFromToken } from '../services/auth.service.js';
+import { isAdminEmail } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 
 export const bookingRouter = Router();
+
+/** Fee multiplier for the caller: 0 (net) for the gérante, 1 otherwise. */
+async function feeMultiplierFor(req: { headers: Record<string, unknown> }): Promise<number> {
+  try {
+    const h = String(req.headers['authorization'] || '');
+    const token = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+    if (!token) return 1;
+    const user = await getUserFromToken(token);
+    return user && isAdminEmail(user.email) ? 0 : 1;
+  } catch { return 1; }
+}
 
 const QuoteBody = z.object({
   category: z.enum(['flight', 'hotel', 'activity', 'package']),
@@ -21,7 +34,8 @@ bookingRouter.post(
   validate(QuoteBody, 'body'),
   asyncHandler(async (req, res) => {
     const b = valid<{ category: FeeCategory; base: number; pax?: number; currency?: string }>(req);
-    res.json(quote(b.category, b.base, b.pax ?? 1, b.currency));
+    const mult = await feeMultiplierFor(req);
+    res.json(quote(b.category, b.base, b.pax ?? 1, b.currency, mult));
   }),
 );
 
@@ -47,7 +61,8 @@ bookingRouter.post(
   validate(IntentBody, 'body'),
   asyncHandler(async (req, res) => {
     const b = valid<{ category: FeeCategory; base: number; pax?: number; label?: string }>(req);
-    const breakdown = quote(b.category, b.base, b.pax ?? 1);
+    const mult = await feeMultiplierFor(req);
+    const breakdown = quote(b.category, b.base, b.pax ?? 1, undefined, mult);
     const amountMinor = Math.round(breakdown.total * 100); // euros → cents
     const intent = await stripeService.createPaymentIntent(amountMinor, breakdown.currency, {
       category: b.category,

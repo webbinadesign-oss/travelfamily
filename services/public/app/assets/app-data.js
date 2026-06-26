@@ -112,11 +112,60 @@ TF.FORMALITES = {
   ],
 };
 
+/* Programme de fidélité « Récompenses Webbina » + Cagnotte voyage.
+   Moteur : une part de chaque voyage VALIDÉ est créditée en cagnotte, déductible
+   du prochain voyage. Taux volontairement bas en gratuit (pousse vers Premium),
+   financé par notre marge, plafonné et soumis à conditions strictes anti-abus. */
+TF.LOYALTY = {
+  balance: 38,          /* solde démo (€) */
+  rate: 0.5,            /* % crédité par voyage validé — GRATUIT */
+  ratePremium: 2,       /* % crédité — PREMIUM (4× plus incitatif) */
+  capFree: 25,          /* plafond € crédité par réservation — gratuit */
+  capPrem: 150,         /* plafond € par réservation — premium */
+  minBooking: 150,      /* montant min. d'une réservation pour compter (€) */
+  useMaxPct: 30,        /* % max. de la cagnotte utilisable sur une réservation */
+  expiryMonths: 24,     /* validité de la cagnotte */
+};
+
+/* Règles du programme (transparence + anti-abus). */
+TF.LOYALTY_RULES = [
+  'Un voyage ne compte que s\'il est payé, réalisé (non annulé) et d\'un montant d\'au moins 150 € incluant un transport ou au moins une nuit d\'hébergement. Un simple billet à bas prix ne compte pas comme un voyage.',
+  'Le palier « Famille Voyageuse » exige des voyages réalisés avec au moins 2 voyageurs.',
+  'La cagnotte est créditée après votre retour (jamais à la réservation), plafonnée par réservation, et valable 24 mois.',
+  'Plafond de cagnotte par réservation : 25 € en gratuit, relevé à 150 € en Premium.',
+  'Cagnotte déductible jusqu\'à 30 % d\'une réservation en gratuit, relevé à 50 % en Premium.',
+  'Premium : taux de cagnotte doublé (2 % au lieu de 0,5 %). Offres cumulables sauf mention contraire.',
+];
+
 TF.BADGES = [
-  { id:'explorer', ic:'compass', name:'Explorateur', desc:'1er voyage planifié', earned:true, color:'ocean' },
-  { id:'adventurer', ic:'balloon', name:'Aventurier', desc:'3 pays visités', earned:true, color:'coral' },
-  { id:'globe', ic:'globe', name:'Globe Trotter', desc:'3 continents', earned:false, progress:66, color:'turq' },
-  { id:'family', ic:'users', name:'Famille Voyageuse', desc:'5 voyages en famille', earned:false, progress:40, color:'gold' },
+  { id:'explorer', ic:'compass', name:'Explorateur', desc:'1er voyage validé', earned:true, color:'ocean',
+    reward:'10 € de bienvenue crédités en cagnotte 🎁',
+    detail:'Dès votre 1ᵉʳ voyage validé : 10 € crédités en cagnotte de bienvenue, plus l\'accès aux « Bons plans du jour ». Votre point de départ.' },
+  { id:'adventurer', ic:'balloon', name:'Aventurier', desc:'3 voyages validés', earned:true, color:'coral',
+    reward:'1 mois Premium offert + cagnotte ×1,5',
+    detail:'Après 3 voyages validés : un mois de Webbina Premium vous est offert (cagnotte 2 %, zéro pub, bons plans exclusifs, alerte prix), et votre cagnotte est boostée à ×1,5 pendant cette période.' },
+  { id:'globe', ic:'globe', name:'Globe Trotter', desc:'3 continents explorés', earned:false, progress:66, color:'turq',
+    reward:'Commission réduite à vie',
+    detail:'Après avoir voyagé sur 3 continents différents : Webbina réduit sa commission sur CHACUNE de vos réservations, à vie. Concrètement, vous payez vos voyages moins cher, pour toujours.' },
+  { id:'family', ic:'users', name:'Famille Voyageuse', desc:'5 voyages validés en famille', earned:false, progress:40, color:'gold',
+    reward:'Cagnotte au taux max (2 %) à vie + 50 € offerts + statut VIP',
+    detail:'Le palier ultime, après 5 voyages validés en famille (au moins 2 voyageurs) : votre cagnotte passe au taux maximum (2 %, comme le Premium) à vie, 50 € vous sont offerts au passage du palier, et vous obtenez le statut VIP — SAV prioritaire et bons plans exclusifs. Vos voyages vous rapportent toujours plus.' },
+];
+
+/* Centre d'aide — questions fréquentes (self-service, déflecte le SAV). */
+TF.FAQ = [
+  { q:'Comment modifier ou annuler une réservation ?',
+    a:'Ouvrez « Mes voyages », sélectionnez la réservation puis « Gérer ». Les conditions (gratuit, payant, non modifiable) dépendent du prestataire (compagnie, hôtel) et sont affichées avant tout achat. Webbina vous guide pas à pas.' },
+  { q:'Où se trouve ma réservation ?',
+    a:'Toutes vos réservations sont dans l\'onglet « Mes voyages », avec le détail, les billets et le récapitulatif. Un e-mail de confirmation vous est aussi envoyé.' },
+  { q:'Le prix a changé entre ma recherche et le paiement, pourquoi ?',
+    a:'Les tarifs proviennent en temps réel des compagnies et hôtels ; ils peuvent évoluer jusqu\'à la confirmation. Le prix définitif est toujours celui affiché à l\'étape de paiement.' },
+  { q:'Mes formalités (visa, passeport) sont-elles garanties ?',
+    a:'Webbina vérifie et vous alerte (feux vert / orange / rouge) à titre indicatif, avant même de réserver. La vérification officielle reste de votre responsabilité auprès de France Diplomatie.' },
+  { q:'Comment fonctionne le paiement ?',
+    a:'Le paiement est sécurisé et chiffré (Stripe). Nous ne stockons jamais votre numéro de carte.' },
+  { q:'Un problème pendant le voyage (vol annulé, souci à l\'hôtel) ?',
+    a:'Pour un incident en cours de voyage, contactez d\'abord le prestataire concerné (compagnie, hôtel) dont les coordonnées figurent sur votre confirmation — c\'est lui qui gère l\'opérationnel. Webbina vous aide à trouver la bonne démarche, et notre équipe reste joignable par écrit.' },
 ];
 
 TF.MEMORY = [

@@ -115,16 +115,19 @@ function App() {
   else if(screen==='formalites') view=<FormalitesScreen go={go} />;
   else if(screen==='dashboard') view=<DashboardScreen go={go} openChat={openChat} />;
   else if(screen==='badges') view=<BadgesScreen go={go} />;
+  else if(screen==='aide') view=<HelpScreen go={go} openChat={openChat} />;
   else if(screen==='favoris') view=<FavorisScreen go={go} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='profil') view=<ProfilScreen go={go} />;
   else if(screen==='passeports') view=<PassportsScreen go={go} />;
   else if(screen==='premium') view=<PremiumScreen go={go} />;
+  else if(screen==='legal') view=<LegalScreen go={go} tab={trip && trip.legalTab} />;
 
   return (
     <div className={`phone-screen ${isChat?'is-chat':''} ${fullBleed?'is-welcome':''}`}>
       {showStatus && <StatusBar />}
       <div className={`scroll-area ${fullBleed?'no-scroll':''}`} key={anim}>{view}</div>
       {showChrome && <TabBar active={tabActive} go={(s)=>go(s)} openChat={openChat} expr={screenToExpr(screen)} />}
+      {typeof CookieBanner!=='undefined' && screen!=='welcome' && <CookieBanner onOpenLegal={()=>go('legal')} />}
     </div>
   );
 }

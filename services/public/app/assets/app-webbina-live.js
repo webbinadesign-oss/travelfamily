@@ -297,6 +297,18 @@
       } catch (e) { return null; }
     },
 
+    /** Real loyalty state (tier, cagnotte, progress) computed from saved_trips.
+        Returns null when logged out or backend unavailable → app falls back to demo. */
+    loyalty: async function () {
+      var id = uid(); if (!id || !api()) return null;
+      try {
+        var plan = (window.TF && TF.plan && TF.plan() === 'premium') ? 'premium' : 'free';
+        var r = await fetch(api() + '/api/loyalty/' + id + '?plan=' + plan, { headers: authHeaders(), cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
     /** Add/register a passport for the logged-in user (private, RLS-protected). */
     addPassport: async function (p) {
       var id = uid(); if (!id || !api()) throw new Error('no_account');

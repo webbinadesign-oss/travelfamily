@@ -48,7 +48,25 @@ function DashboardScreen({ go, openChat }) {
 
 /* ---- Gamification ---- */
 function BadgesScreen({ go }) {
-  const earned = TF.BADGES.filter(b=>b.earned).length;
+  const [loy, setLoy] = React.useState(null);
+  React.useEffect(()=>{
+    let alive=true;
+    (async()=>{ try{ if(window.WebbinaBackend && WebbinaBackend.loyalty){ const d=await WebbinaBackend.loyalty(); if(alive && d) setLoy(d); } }catch(e){} })();
+    return ()=>{ alive=false; };
+  }, []);
+  // Real thresholds when logged in; otherwise the demo flags in TF.BADGES.
+  const earnedOf = (b)=>{
+    if(!loy) return !!b.earned;
+    if(b.id==='explorer') return loy.validatedTrips>=1;
+    if(b.id==='adventurer') return loy.validatedTrips>=3;
+    if(b.id==='globe') return loy.continents>=3;
+    if(b.id==='family') return loy.familyTrips>=5;
+    return !!b.earned;
+  };
+  const badges = TF.BADGES.map(b=>({ ...b, earned: earnedOf(b) }));
+  const earned = badges.filter(b=>b.earned).length;
+  const balance = loy ? loy.balance : (TF.LOYALTY && TF.LOYALTY.balance) || 0;
+  const rate = loy ? +(loy.rate*100).toFixed(1) : (TF.LOYALTY && TF.LOYALTY.rate) || 0.5;
   return (
     <div className="screen" style={{ paddingBottom:30 }}>
       <div className="sub-head">
@@ -62,21 +80,53 @@ function BadgesScreen({ go }) {
           <div className="display" style={{ fontSize:44, color:'#fff' }}>3</div>
           <div className="micro" style={{ color:'rgba(255,255,255,.75)' }}>pays explorés ensemble</div>
         </div>
-        <div className="grid" style={{ gridTemplateColumns:'1fr 1fr', gap:12, marginTop:16 }}>
-          {TF.BADGES.map(b=>(
-            <div key={b.id} className={`badge-card ${b.earned?'earned':''}`}>
-              <div className="badge-medal" style={{ background: b.earned?`var(--${b.color}-50)`:'var(--slate-100)', color: b.earned?`var(--${b.color}-700)`:'var(--text-muted)' }}>
-                <Icon n={b.ic} size={30} />
-                {b.earned && <span className="medal-star"><Icon n="check" size={13} /></span>}
+
+        <div className="card card--pad" style={{ marginTop:14, borderColor:'var(--gold-300, var(--border))' }}>
+          <div className="row between" style={{ alignItems:'center' }}>
+            <div>
+              <div className="res-eyebrow" style={{ color:'var(--gold-700)' }}><Icon n="wallet" size={13} />Ma cagnotte voyage</div>
+              <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:30, marginTop:4 }}>{balance} €</div>
+            </div>
+            <div className="badge-medal" style={{ background:'var(--gold-50)', color:'var(--gold-700)', width:54, height:54 }}><Icon n="star" size={26} /></div>
+          </div>
+          <p className="micro" style={{ marginTop:8, lineHeight:1.5 }}>À chaque voyage <b>validé</b>, <b>{rate} %</b> du montant revient en cagnotte (<b>{(TF.LOYALTY&&TF.LOYALTY.ratePremium)||2} % en Premium</b>), <b>déductible</b> de votre prochaine réservation. Créditée après votre retour, plafonnée, valable {(TF.LOYALTY&&TF.LOYALTY.expiryMonths)||24} mois.</p>
+        </div>
+
+        <div className="card card--pad" style={{ marginTop:12 }}>
+          <h4 style={{ fontSize:15, marginBottom:4 }}>Comment ça marche&nbsp;?</h4>
+          <p className="micro" style={{ lineHeight:1.5 }}>Chaque voyage réservé fait progresser votre famille et débloque un <b>avantage réel</b> : de la cagnotte, un mois Premium offert, une commission réduite à vie, puis le statut VIP. Plus vous voyagez, plus Webbina vous gâte.</p>
+        </div>
+
+        <details className="card card--pad rules-card" style={{ marginTop:12 }}>
+          <summary><Icon n="shield" size={15} /> Les règles, en toute transparence</summary>
+          <ul className="rules-list">
+            {(window.TF && TF.LOYALTY_RULES ? TF.LOYALTY_RULES : []).map((r,i)=><li key={i}>{r}</li>)}
+          </ul>
+        </details>
+
+        <div className="tier-list" style={{ marginTop:16 }}>
+          {badges.map(b=>(
+            <div key={b.id} className={`tier-row ${b.earned?'earned':''}`}>
+              <div className="tier-medal" style={{ background: b.earned?`var(--${b.color}-50)`:'var(--slate-100)', color: b.earned?`var(--${b.color}-700)`:'var(--text-muted)' }}>
+                <Icon n={b.ic} size={26} />
+                {b.earned && <span className="medal-star"><Icon n="check" size={12} /></span>}
               </div>
-              <b style={{ fontFamily:'var(--font-display)', fontSize:15, marginTop:10 }}>{b.name}</b>
-              <div className="micro" style={{ textAlign:'center' }}>{b.desc}</div>
-              {!b.earned && b.progress!=null && (
-                <div style={{ width:'100%', marginTop:8 }}>
-                  <div style={{ height:6, borderRadius:99, background:'var(--slate-100)', overflow:'hidden' }}><div style={{ width:`${b.progress}%`, height:'100%', background:`var(--${b.color})` }}></div></div>
-                  <div className="micro" style={{ textAlign:'center', marginTop:4 }}>{b.progress}%</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div className="row between" style={{ alignItems:'baseline' }}>
+                  <b style={{ fontFamily:'var(--font-display)', fontSize:15.5 }}>{b.name}</b>
+                  <span className="micro" style={{ color:'var(--text-muted)' }}>{b.desc}</span>
                 </div>
-              )}
+                <div className="tier-reward" style={{ color:`var(--${b.color}-700)`, background:`var(--${b.color}-50)` }}>
+                  <Icon n="star" size={12} /> {b.reward}
+                </div>
+                {b.detail && <p className="tier-detail">{b.detail}</p>}
+                {!b.earned && !loy && b.progress!=null && (
+                  <div style={{ marginTop:8 }}>
+                    <div style={{ height:6, borderRadius:99, background:'var(--slate-100)', overflow:'hidden' }}><div style={{ width:`${b.progress}%`, height:'100%', background:`var(--${b.color})` }}></div></div>
+                    <div className="micro" style={{ marginTop:4 }}>{b.progress}% \u2014 plus que quelques voyages&nbsp;!</div>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -113,7 +163,7 @@ function ProfilScreen({ go }) {
           ))}
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:16 }}>
-          {[['star','Mes récompenses','badges'],['briefcase','Mémoire voyage','dashboard'],['shield','Passeports de la famille','passeports'],['users','Ma famille & enfants',null],['wallet','Moyens de paiement',null],['shield','Données & confidentialité',null],['phone','Aide & conseiller humain',null]].map((r,i)=>(
+          {[['star','Mes récompenses','badges'],['briefcase','Mémoire voyage','dashboard'],['shield','Passeports de la famille','passeports'],['users','Ma famille & enfants',null],['wallet','Moyens de paiement',null],['shield','Données & confidentialité','legal'],['info','Informations légales (mentions, CGV)','legal'],['phone','Aide & SAV','aide']].map((r,i)=>(
             <button key={i} className="row gap3 card profil-row" onClick={()=> r[2] && go(r[2])}>
               <div className="mem-ic"><Icon n={r[0]} size={20} /></div>
               <b style={{ flex:1, textAlign:'left', fontFamily:'var(--font-display)', fontSize:15 }}>{r[1]}</b>
@@ -164,9 +214,12 @@ function PremiumScreen({ go }) {
           </div>
           <Row txt="Webbina, recherche & réservation in-app" free={true} prem={true} />
           <Row txt="Séjours clé en main (vol + hôtel + activités)" free={true} prem={true} />
-          <Row txt="Sans encart partenaire / sans pub" free={false} prem={true} />
-          <Row txt="Alertes bons plans en avant-première" free={false} prem={true} />
-          <Row txt="Commission réduite sur vos réservations" free={false} prem={true} />
+          <Row txt="Cagnotte voyage doublée (2 % au lieu de 1 %)" free={false} prem={true} />
+          <Row txt="Commission réduite — vous payez moins à chaque voyage" free={false} prem={true} />
+          <Row txt="Bons plans exclusifs réservés aux Premium" free={false} prem={true} />
+          <Row txt="Alerte baisse de prix sur vos voyages suivis" free={false} prem={true} />
+          <Row txt="Sans aucune publicité ni encart partenaire" free={false} prem={true} />
+          <Row txt="Webbina prioritaire + SAV prioritaire" free={false} prem={true} />
           <Row txt="Carnet famille & passeports illimités" free={false} prem={true} />
         </div>
 

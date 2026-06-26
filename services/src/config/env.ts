@@ -53,6 +53,8 @@ export interface Env {
   supabaseServiceRoleKey: string;
   supabaseSchema: string;
 
+  adminEmails: string[];      // e-mails autorisés à l'Espace Gérante (admin)
+
   bookingApiUrl: string;
   bookingApiKey: string;
 
@@ -110,6 +112,8 @@ export const env: Env = {
   supabaseAnonKey: str('SUPABASE_ANON_KEY'),
   supabaseServiceRoleKey: str('SUPABASE_SERVICE_ROLE_KEY'),
   supabaseSchema: str('SUPABASE_SCHEMA', 'public'),
+
+  adminEmails: list('ADMIN_EMAILS', ['webbinadesign@gmail.com']),
 
   bookingApiUrl: str('BOOKING_API_URL', 'https://demandapi.booking.com/3.2'),
   bookingApiKey: str('BOOKING_API_KEY'),

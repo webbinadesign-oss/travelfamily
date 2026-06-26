@@ -509,6 +509,10 @@ function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav 
 
       <div className="home-sep"></div>
 
+      {typeof SponsoredRow!=='undefined' && <SponsoredRow limit={2} onPremium={()=>go('premium')} />}
+
+      <div className="home-sep"></div>
+
       <div style={{ padding:'18px 0 6px' }}>
         <div className="row between" style={{ padding:'0 18px', marginBottom:12 }}>
           <div>
@@ -532,7 +536,7 @@ function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav 
             <div style={{ flex:1 }}>
               <span className="badge badge--premium" style={{ marginBottom:8 }}><Icon n="crown" size={13} />Premium</span>
               <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:18, marginTop:8 }}>Webbina Premium · 4,99 €/mois</div>
-              <div style={{ fontSize:13.5, opacity:.85, marginTop:4, lineHeight:1.45 }}>Sans publicité · alertes bons plans en avant-première · commission réduite sur vos réservations.</div>
+              <div style={{ fontSize:13.5, opacity:.85, marginTop:4, lineHeight:1.45 }}>Cagnotte doublée · commission réduite · bons plans exclusifs · alerte baisse de prix · zéro pub.</div>
             </div>
             <Icon n="chevronRight" size={22} />
           </div>

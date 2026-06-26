@@ -85,6 +85,8 @@ const ConfirmBody = z.object({
   ref: z.string().max(40),
   total: z.coerce.number().min(0),
   pax: z.coerce.number().int().min(1).max(12).optional(),
+  flight: z.string().max(160).optional(),
+  conditions: z.string().max(400).optional(),
 });
 
 /** POST /api/booking/confirm — send a confirmation e-mail (no-op if mail not configured). */
@@ -92,6 +94,7 @@ bookingRouter.post('/confirm', validate(ConfirmBody, 'body'), asyncHandler(async
   const b = valid<z.infer<typeof ConfirmBody>>(req);
   const sent = await mailService.sendBookingConfirmation(b.email, {
     destination: b.destination, ref: b.ref, total: b.total, pax: b.pax ?? 1,
+    ...(b.flight ? { flight: b.flight } : {}), ...(b.conditions ? { conditions: b.conditions } : {}),
   });
   res.json({ ok: true, emailSent: sent });
 }));

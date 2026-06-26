@@ -358,6 +358,38 @@
       try { await fetch(api() + '/api/watch/' + id + '/' + watchId, { method: 'DELETE', headers: authHeaders() }); } catch (e) {}
     },
 
+    /** Annulation d'une commande Duffel (devis du remboursement puis confirmation). */
+    cancelQuote: async function (orderId) {
+      if (!api()) throw new Error('no_backend');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var r = await fetch(api() + '/api/flights/order/' + orderId + '/cancel-quote', { method: 'POST', headers: headers, body: '{}' });
+      if (!r.ok) throw new Error('quote_failed');
+      return await r.json();
+    },
+    cancelConfirm: async function (cancellationId) {
+      if (!api()) throw new Error('no_backend');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var r = await fetch(api() + '/api/flights/order/cancel-confirm', { method: 'POST', headers: headers, body: JSON.stringify({ cancellationId: cancellationId }) });
+      if (!r.ok) throw new Error('confirm_failed');
+      return await r.json();
+    },
+
+    /** Modification (rebooking) d'une commande Duffel : devis nouvelle date puis confirmation. */
+    changeQuote: async function (orderId, departureDate) {
+      if (!api()) throw new Error('no_backend');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var r = await fetch(api() + '/api/flights/order/' + orderId + '/change-quote', { method: 'POST', headers: headers, body: JSON.stringify({ departureDate: departureDate }) });
+      if (!r.ok) throw new Error('change_quote_failed');
+      return await r.json();
+    },
+    changeConfirm: async function (changeOfferId) {
+      if (!api()) throw new Error('no_backend');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var r = await fetch(api() + '/api/flights/order/change-confirm', { method: 'POST', headers: headers, body: JSON.stringify({ changeOfferId: changeOfferId }) });
+      if (!r.ok) throw new Error('change_confirm_failed');
+      return await r.json();
+    },
+
     /** Add/register a passport for the logged-in user (private, RLS-protected). */
     addPassport: async function (p) {
       var id = uid(); if (!id || !api()) throw new Error('no_account');

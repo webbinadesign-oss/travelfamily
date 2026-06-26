@@ -87,6 +87,39 @@ flightsRouter.post('/order', validate(OrderBody, 'body'), asyncHandler(async (re
   res.status(201).json(await duffelService.createOrder(b));
 }));
 
+/** GET /api/flights/order/:id — read an order. */
+flightsRouter.get('/order/:id', asyncHandler(async (req, res) => {
+  res.json(await duffelService.getOrder(req.params['id']!));
+}));
+
+/** POST /api/flights/order/:id/cancel-quote — quote the refund (pending cancellation). */
+flightsRouter.post('/order/:id/cancel-quote', asyncHandler(async (req, res) => {
+  res.json(await duffelService.cancelQuote(req.params['id']!));
+}));
+
+/** POST /api/flights/order/cancel-confirm — confirm a pending cancellation. */
+const CancelConfirm = z.object({ cancellationId: z.string().min(3) });
+flightsRouter.post('/order/cancel-confirm', validate(CancelConfirm, 'body'), asyncHandler(async (req, res) => {
+  const b = valid<z.infer<typeof CancelConfirm>>(req);
+  res.json(await duffelService.cancelConfirm(b.cancellationId));
+}));
+
+/** POST /api/flights/order/:id/change-quote — quote a new departure date. */
+const ChangeQuote = z.object({ departureDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), cabin: z.string().optional() });
+flightsRouter.post('/order/:id/change-quote', validate(ChangeQuote, 'body'), asyncHandler(async (req, res) => {
+  const b = valid<z.infer<typeof ChangeQuote>>(req);
+  const q = await duffelService.changeQuote(req.params['id']!, b.departureDate, b.cabin || 'economy');
+  if (!q) throw ApiError.badRequest('Aucune option de modification disponible pour cette date.');
+  res.json(q);
+}));
+
+/** POST /api/flights/order/change-confirm — create + confirm the change. */
+const ChangeConfirm = z.object({ changeOfferId: z.string().min(3) });
+flightsRouter.post('/order/change-confirm', validate(ChangeConfirm, 'body'), asyncHandler(async (req, res) => {
+  const b = valid<z.infer<typeof ChangeConfirm>>(req);
+  res.json(await duffelService.changeConfirm(b.changeOfferId));
+}));
+
 const HotelQuery = z.object({
   cityCode: z.string().length(3).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),

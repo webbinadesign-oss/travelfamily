@@ -7,6 +7,17 @@
 
 function fmtPrice(n){ return Math.round(n).toLocaleString('fr-FR'); }
 
+/* Conditions du billet, formulées honnêtement à partir des données Duffel. */
+function condText(flight){
+  const c = flight && flight.conditions;
+  if(c){
+    const chg = c.changeable ? ('modifiable'+(c.changePenalty?` (frais ~${Math.round(c.changePenalty)} ${c.currency==='EUR'||!c.currency?'€':c.currency})`:' sans frais')) : 'non modifiable';
+    const rfd = c.refundable ? ('remboursable'+(c.refundPenalty?` (frais ~${Math.round(c.refundPenalty)} ${c.currency==='EUR'||!c.currency?'€':c.currency})`:'')) : 'non remboursable';
+    return `Billet ${chg}, ${rfd}. Selon les conditions de la compagnie.`;
+  }
+  return 'Conditions de modification et d\'annulation selon le tarif et la compagnie. À vérifier avant tout changement — des frais peuvent s\'appliquer.';
+}
+
 function BookingScreen({ booking, go }) {
   const b = booking || {};
   const dest = b.dest || {};
@@ -128,6 +139,7 @@ function BookingScreen({ booking, go }) {
       if(offerId && named.length && window.WebbinaBackend && window.WebbinaBackend.createFlightOrder){
         const order = await window.WebbinaBackend.createFlightOrder(offerId, named);
         if(order && order.bookingReference){ orderRef = order.bookingReference; setRef(order.bookingReference); }
+        if(order && order.id){ try{ window.__lastOrderId = order.id; }catch(e){} }
       }
     }catch(e){ /* issuance optional in test phase */ }
 
@@ -135,10 +147,12 @@ function BookingScreen({ booking, go }) {
     try{
       const rec = {
         id: 'L'+Date.now(), ref: orderRef || ref || ('TF-'+Math.random().toString(36).slice(2,8).toUpperCase()),
+        orderId: (window.__lastOrderId||''),
         destination: dest.name||'', country: dest.country||'', img: dest.img||'',
         airline: flight.airline||'', code: flight.code||'', time: flight.time||'', via: flight.via||'', dur: flight.dur||'',
         origin: flight.origin||'', total: total, pax: pax, adults: adults, children: children,
         travelers: (paxIds||[]).map(p=>({ givenName:p.givenName||'', familyName:p.familyName||'', bornOn:p.bornOn||'' })),
+        conditions: condText(flight),
         paid: payEnabled, createdAt: Date.now(),
       };
       const arr = JSON.parse(localStorage.getItem('tf_trips_local')||'[]');
@@ -153,6 +167,7 @@ function BookingScreen({ booking, go }) {
         const headers=Object.assign({'Content-Type':'application/json'}, (window.webbinaAuthHeaders?window.webbinaAuthHeaders():{}));
         fetch(api+'/api/booking/confirm',{ method:'POST', headers, body:JSON.stringify({
           email, destination:dest.name||'votre destination', ref:(orderRef||ref||''), total:Math.round(total), pax,
+          flight:[flight.airline,flight.time,flight.via].filter(Boolean).join(' · '), conditions:condText(flight),
         })}).catch(()=>{});
       }
     }catch(e){}
@@ -253,6 +268,12 @@ function BookingScreen({ booking, go }) {
               <div className="micro" style={{ marginTop:10, color:'var(--text-2)' }}><Icon n="users" size={12} /> {pax} voyageur{pax>1?'s':''} au total</div>
             </div>
             {typeof PaxIdentity!=='undefined' && <PaxIdentity count={pax} value={paxIds} onChange={setPaxIds} saved={savedPax} />}
+            <div className="card card--pad cond-card">
+              <div className="row gap2" style={{ alignItems:'flex-start' }}>
+                <Icon n="info" size={16} />
+                <div><b style={{ fontFamily:'var(--font-display)', fontSize:13.5 }}>Conditions du billet</b><div className="micro" style={{ marginTop:3, lineHeight:1.5 }}>{condText(flight)} Elles vous sont rappelées dans l'e-mail de confirmation.</div></div>
+              </div>
+            </div>
             <PriceBlock unit={unit} pax={pax} base={base} fee={fee} total={total} label={quote&&quote.label} />
             <button className="btn btn--primary btn--block" onClick={()=>setStep(1)}>Procéder au paiement <Icon n="arrowRight" size={18} /></button>
           </div>

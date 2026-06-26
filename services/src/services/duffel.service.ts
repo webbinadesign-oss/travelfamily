@@ -50,6 +50,10 @@ interface RawOffer {
   total_amount: string;
   total_currency: string;
   slices: RawSlice[];
+  conditions?: {
+    change_before_departure?: { allowed?: boolean; penalty_amount?: string | null; penalty_currency?: string | null } | null;
+    refund_before_departure?: { allowed?: boolean; penalty_amount?: string | null; penalty_currency?: string | null } | null;
+  };
 }
 interface OfferRequestResponse {
   data: { offers?: RawOffer[]; id: string };
@@ -72,6 +76,13 @@ function mapOffer(raw: RawOffer): FlightOffer {
   );
   // stops across all slices = total segments minus number of slices
   const stops = Math.max(0, segments.length - raw.slices.length);
+  const chg = raw.conditions?.change_before_departure;
+  const rfd = raw.conditions?.refund_before_departure;
+  const conditions = (chg || rfd) ? {
+    changeable: Boolean(chg?.allowed), changePenalty: chg?.penalty_amount ? Number(chg.penalty_amount) : 0,
+    refundable: Boolean(rfd?.allowed), refundPenalty: rfd?.penalty_amount ? Number(rfd.penalty_amount) : 0,
+    currency: chg?.penalty_currency || rfd?.penalty_currency || raw.total_currency,
+  } : undefined;
   return {
     id: raw.id,
     oneWay: raw.slices.length <= 1,
@@ -79,6 +90,7 @@ function mapOffer(raw: RawOffer): FlightOffer {
     stops,
     durationIso: raw.slices[0]?.duration || '',
     segments,
+    ...(conditions ? { conditions } : {}),
   };
 }
 
@@ -183,5 +195,81 @@ export const duffelService = {
       status: d.live_mode ? 'confirmed' : 'confirmed_test',
       amount: d.total_amount, currency: d.total_currency,
     };
+  },
+
+  /** Read an existing order (status, slices, total). */
+  async getOrder(orderId: string): Promise<{ id: string; bookingReference: string; amount: string; currency: string; cancelledAt?: string; slices: Array<{ id: string; origin: string; destination: string; departureDate: string }> }> {
+    assertConfigured();
+    const res = await httpRequest<{ data: { id: string; booking_reference: string; total_amount: string; total_currency: string; cancelled_at?: string | null; slices?: Array<{ id: string; segments?: Array<{ origin?: { iata_code?: string }; destination?: { iata_code?: string }; departing_at?: string }> }> } }>(
+      `${BASE}/air/orders/${orderId}`,
+      { method: 'GET', provider: 'duffel', timeoutMs: 20_000, headers: headers() },
+    );
+    const d = res.data;
+    const slices = (d.slices || []).map((sl) => {
+      const seg = sl.segments && sl.segments[0];
+      return {
+        id: sl.id,
+        origin: seg?.origin?.iata_code || '',
+        destination: (sl.segments && sl.segments[sl.segments.length - 1]?.destination?.iata_code) || seg?.destination?.iata_code || '',
+        departureDate: (seg?.departing_at || '').slice(0, 10),
+      };
+    });
+    return { id: d.id, bookingReference: d.booking_reference, amount: d.total_amount, currency: d.total_currency, slices, ...(d.cancelled_at ? { cancelledAt: d.cancelled_at } : {}) };
+  },
+
+  /** Step 1 of cancellation — create a pending cancellation that quotes the refund. */
+  async cancelQuote(orderId: string): Promise<{ id: string; refundAmount: string; currency: string }> {
+    assertConfigured();
+    const res = await httpRequest<{ data: { id: string; refund_amount: string; refund_currency: string } }>(
+      `${BASE}/air/order_cancellations`,
+      { method: 'POST', provider: 'duffel', timeoutMs: 25_000, headers: headers(), body: { data: { order_id: orderId } } },
+    );
+    const d = res.data;
+    return { id: d.id, refundAmount: d.refund_amount, currency: d.refund_currency };
+  },
+
+  /** Step 2 — confirm the cancellation (refund is then processed by the carrier). */
+  async cancelConfirm(cancellationId: string): Promise<{ id: string; status: string; refundAmount: string; currency: string }> {
+    assertConfigured();
+    const res = await httpRequest<{ data: { id: string; refund_amount: string; refund_currency: string; confirmed_at?: string } }>(
+      `${BASE}/air/order_cancellations/${cancellationId}/actions/confirm`,
+      { method: 'POST', provider: 'duffel', timeoutMs: 25_000, headers: headers(), body: {} },
+    );
+    const d = res.data;
+    return { id: d.id, status: 'cancelled', refundAmount: d.refund_amount, currency: d.refund_currency };
+  },
+
+  /** Step 1 of a change — quote a new departure date (cheapest change offer). */
+  async changeQuote(orderId: string, newDepartureDate: string, cabin = 'economy'): Promise<{ changeOfferId: string; changeAmount: string; newTotal: string; currency: string; expiresAt?: string } | null> {
+    assertConfigured();
+    const order = await this.getOrder(orderId);
+    const slice = order.slices[0];
+    if (!slice) return null;
+    const reqRes = await httpRequest<{ data: { id: string; order_change_offers?: Array<{ id: string; change_total_amount: string; new_total_amount: string; new_total_currency: string; expires_at?: string }> } }>(
+      `${BASE}/air/order_change_requests`,
+      {
+        method: 'POST', provider: 'duffel', timeoutMs: 30_000, headers: headers(),
+        body: { data: { order_id: orderId, slices: { remove: [{ slice_id: slice.id }], add: [{ origin: slice.origin, destination: slice.destination, departure_date: newDepartureDate, cabin_class: cabin }] } } },
+      },
+    );
+    const offers = reqRes.data.order_change_offers || [];
+    if (!offers.length) return null;
+    const best = offers.slice().sort((a, b) => Number(a.change_total_amount) - Number(b.change_total_amount))[0]!;
+    return { changeOfferId: best.id, changeAmount: best.change_total_amount, newTotal: best.new_total_amount, currency: best.new_total_currency, ...(best.expires_at ? { expiresAt: best.expires_at } : {}) };
+  },
+
+  /** Step 2 — create + confirm the change (pays the difference on the test/live balance). */
+  async changeConfirm(changeOfferId: string): Promise<{ id: string; status: string; changeAmount: string; currency: string }> {
+    assertConfigured();
+    const createRes = await httpRequest<{ data: { id: string; change_total_amount: string; change_total_currency: string } }>(
+      `${BASE}/air/order_changes`,
+      { method: 'POST', provider: 'duffel', timeoutMs: 30_000, headers: headers(), body: { data: { selected_order_change_offer: changeOfferId } } },
+    );
+    const ch = createRes.data;
+    await httpRequest<{ data: unknown }>(
+      `${BASE}/air/order_changes/${ch.id}/actions/confirm`,
+      { method: 'POST', provider: 'duffel', timeoutMs: 30_000, headers: headers(), body: { data: { payment: { type: 'balance', amount: ch.change_total_amount, currency: ch.change_total_currency } } } },
+    );
+    return { id: ch.id, status: 'changed', changeAmount: ch.change_total_amount, currency: ch.change_total_currency };
   },
 };

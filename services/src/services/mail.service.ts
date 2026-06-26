@@ -10,9 +10,11 @@ export const mailService = {
     return Boolean(env.resendApiKey && env.mailFrom);
   },
 
-  async sendBookingConfirmation(to: string, data: { destination: string; ref: string; total: number; pax: number; currency?: string }): Promise<boolean> {
+  async sendBookingConfirmation(to: string, data: { destination: string; ref: string; total: number; pax: number; currency?: string; flight?: string; conditions?: string }): Promise<boolean> {
     if (!to || !this.configured()) return false;
     const cur = (data.currency || 'EUR') === 'EUR' ? '€' : (data.currency || 'EUR');
+    const flightRow = data.flight ? `<tr><td style="padding:8px 0;color:#6B7A93">Vol</td><td style="text-align:right;font-weight:700">${data.flight}</td></tr>` : '';
+    const conditions = data.conditions || 'Conditions de modification et d\'annulation selon le tarif et la compagnie. Vérifiez-les avant tout changement — des frais peuvent s\'appliquer.';
     const html = `
       <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;color:#0B1A33">
         <div style="background:linear-gradient(135deg,#1E63C7,#0E8FA3);color:#fff;padding:24px;border-radius:16px 16px 0 0">
@@ -24,9 +26,13 @@ export const mailService = {
           <p style="font-size:15px;line-height:1.5">Votre voyage vers <b>${data.destination}</b> est bien réservé pour <b>${data.pax} voyageur(s)</b>. Webbina reste à vos côtés pour la suite.</p>
           <table style="width:100%;font-size:14px;margin:16px 0;border-collapse:collapse">
             <tr><td style="padding:8px 0;color:#6B7A93">Référence</td><td style="text-align:right;font-weight:700">${data.ref}</td></tr>
+            ${flightRow}
             <tr><td style="padding:8px 0;color:#6B7A93">Total</td><td style="text-align:right;font-weight:700">${Math.round(data.total)} ${cur}</td></tr>
           </table>
-          <p style="font-size:13px;color:#6B7A93;line-height:1.5">Pensez à vérifier vos formalités (passeport, visa) avant le départ. Pour toute question, répondez à cet e-mail ou ouvrez l'aide dans l'application.</p>
+          <div style="background:#FBF1DA;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.5;color:#7a5a12">
+            <b>Conditions du billet —</b> ${conditions}
+          </div>
+          <p style="font-size:13px;color:#6B7A93;line-height:1.5;margin-top:14px">Pensez à vérifier vos formalités (passeport, visa) avant le départ. Pour modifier votre réservation ou toute question, ouvrez l'aide dans l'application ou répondez à cet e-mail.</p>
         </div>
       </div>`;
     try {

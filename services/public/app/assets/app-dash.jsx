@@ -74,6 +74,95 @@ function DashboardScreen({ go, openChat }) {
   );
 }
 
+/* ---- Gestion / annulation d'une réservation ---- */
+function ManageBooking({ trip, go }){
+  const oid = trip && trip.orderId;
+  const [state, setState] = React.useState('idle'); // idle|quoting|quote|confirming|done|error
+  const [quote, setQuote] = React.useState(null);
+  const [err, setErr] = React.useState('');
+  // rebooking (change date)
+  const [mode, setMode] = React.useState(''); // '' | 'change'
+  const [newDate, setNewDate] = React.useState('');
+  const [chState, setChState] = React.useState('idle'); // idle|quoting|quote|confirming|done
+  const [chQuote, setChQuote] = React.useState(null);
+  const [chErr, setChErr] = React.useState('');
+  async function doQuote(){
+    setErr(''); setState('quoting');
+    try{ const q = await WebbinaBackend.cancelQuote(oid); setQuote(q); setState('quote'); }
+    catch(e){ setErr('Impossible de calculer le remboursement pour le moment.'); setState('error'); }
+  }
+  async function doConfirm(){
+    setErr(''); setState('confirming');
+    try{
+      await WebbinaBackend.cancelConfirm(quote.id);
+      try{ const a=JSON.parse(localStorage.getItem('tf_trips_local')||'[]').filter(x=>x.id!==trip.id); localStorage.setItem('tf_trips_local', JSON.stringify(a)); }catch(e){}
+      setState('done');
+    }catch(e){ setErr('La confirmation a échoué. Réessayez ou contactez l\'aide.'); setState('error'); }
+  }
+  async function doChangeQuote(){
+    if(!newDate) return; setChErr(''); setChState('quoting');
+    try{ const q = await WebbinaBackend.changeQuote(oid, newDate); setChQuote(q); setChState('quote'); }
+    catch(e){ setChErr('Aucune option pour cette date, ou modification indisponible.'); setChState('idle'); }
+  }
+  async function doChangeConfirm(){
+    setChErr(''); setChState('confirming');
+    try{ await WebbinaBackend.changeConfirm(chQuote.changeOfferId); setChState('done'); }
+    catch(e){ setChErr('La modification a échoué. Réessayez ou contactez l\'aide.'); setChState('idle'); }
+  }
+  const cur = (c)=> (c==='EUR'||!c)?'€':c;
+  if(state==='done'){
+    return <div className="micro" style={{ marginTop:12, color:'var(--success)', lineHeight:1.5 }}><Icon n="check" size={14} /> Annulation confirmée. Le remboursement éventuel est traité par la compagnie sous quelques jours.</div>;
+  }
+  return (
+    <div style={{ marginTop:12 }}>
+      {/* Modifier (rebooking) */}
+      {oid ? (
+        chState==='done' ? (
+          <div className="micro" style={{ color:'var(--success)', lineHeight:1.5 }}><Icon n="check" size={14} /> Date modifiée&nbsp;! Votre nouvelle confirmation arrive par e-mail.</div>
+        ) : mode==='change' ? (
+          <div className="card card--pad" style={{ background:'var(--surface-sunk)' }}>
+            <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>Changer la date du vol</b>
+            <input className="watch-in date" type="date" style={{ display:'block', marginTop:8 }} value={newDate} onChange={e=>setNewDate(e.target.value)} />
+            {chState==='quote' && chQuote ? (
+              <div style={{ marginTop:10 }}>
+                <div className="row between"><span className="micro">Différence à payer</span><b style={{ fontFamily:'var(--font-display)' }}>{Math.round(chQuote.changeAmount||0)} {cur(chQuote.currency)}</b></div>
+                <p className="micro" style={{ margin:'8px 0', lineHeight:1.5 }}>Nouveau total {Math.round(chQuote.newTotal||0)} {cur(chQuote.currency)}. Selon les conditions du billet.</p>
+                <button className="btn btn--primary btn--block" disabled={chState==='confirming'} onClick={doChangeConfirm}>{chState==='confirming'?'Modification…':'Confirmer la nouvelle date'}</button>
+                <button className="btn btn--ghost btn--block btn--sm" style={{ marginTop:6 }} onClick={()=>{ setChState('idle'); setChQuote(null); }}>Choisir une autre date</button>
+              </div>
+            ) : (
+              <button className="btn btn--primary btn--block" style={{ marginTop:10 }} disabled={chState==='quoting'||!newDate} onClick={doChangeQuote}>{chState==='quoting'?'Recherche…':'Voir le prix de la modification'}</button>
+            )}
+            {chErr && <div className="micro" style={{ color:'var(--coral-700,#D43B3B)', marginTop:8 }}>{chErr}</div>}
+            <button className="btn btn--ghost btn--block btn--sm" style={{ marginTop:6 }} onClick={()=>setMode('')}>Annuler</button>
+          </div>
+        ) : (
+          <button className="btn btn--secondary btn--block" onClick={()=>setMode('change')}><Icon n="sparkles" size={16} /> Modifier la date du vol</button>
+        )
+      ) : (
+        <button className="btn btn--secondary btn--block" onClick={()=>go('aide')}><Icon n="sparkles" size={16} /> Modifier ma réservation</button>
+      )}
+
+      {/* Annuler */}
+      {oid ? (
+        state==='quote' ? (
+          <div className="card card--pad" style={{ marginTop:10, background:'var(--surface-sunk)' }}>
+            <div className="row between"><span className="micro">Remboursement estimé</span><b style={{ fontFamily:'var(--font-display)' }}>{Math.round(quote.refundAmount||0)} {cur(quote.currency)}</b></div>
+            <p className="micro" style={{ margin:'8px 0', lineHeight:1.5 }}>Selon les conditions du billet. Cette action est définitive.</p>
+            <button className="btn btn--block" style={{ background:'var(--coral-50,#FCEBEB)', color:'var(--coral-700,#D43B3B)' }} disabled={state==='confirming'} onClick={doConfirm}>{state==='confirming'?'Annulation…':'Confirmer l\'annulation'}</button>
+            <button className="btn btn--ghost btn--block btn--sm" style={{ marginTop:6 }} onClick={()=>setState('idle')}>Garder ma réservation</button>
+          </div>
+        ) : (
+          <button className="btn btn--ghost btn--block" style={{ marginTop:8, color:'var(--coral-700,#D43B3B)' }} disabled={state==='quoting'} onClick={doQuote}>{state==='quoting'?'Calcul du remboursement…':'Annuler ma réservation'}</button>
+        )
+      ) : (
+        <div className="micro" style={{ textAlign:'center', color:'var(--text-muted)', marginTop:8, lineHeight:1.5 }}>Pour annuler, Webbina vous met en relation avec le prestataire (Aide & SAV).</div>
+      )}
+      {err && <div className="micro" style={{ color:'var(--coral-700,#D43B3B)', marginTop:8 }}>{err}</div>}
+    </div>
+  );
+}
+
 /* ---- Détail d'une réservation ---- */
 function TripDetailScreen({ trip, go }){
   const t = trip || {};
@@ -123,6 +212,12 @@ function TripDetailScreen({ trip, go }){
           <b style={{ flex:1, textAlign:'left', fontFamily:'var(--font-display)', fontSize:14.5 }}>Vérifier mes formalités</b>
           <Icon n="chevronRight" size={18} style={{ color:'var(--text-muted)' }} />
         </button>
+
+        <div className="card card--pad" style={{ marginTop:12 }}>
+          <h4 style={{ fontSize:14, marginBottom:6 }}>Conditions du billet</h4>
+          <p className="micro" style={{ lineHeight:1.5 }}>{t.conditions || 'Modification et annulation selon le tarif et la compagnie — des frais peuvent s\'appliquer.'}</p>
+          <ManageBooking trip={t} go={go} />
+        </div>
 
         <div className="micro" style={{ textAlign:'center', color:'var(--text-muted)', marginTop:14, lineHeight:1.5 }}>
           En cas de besoin, retrouvez l'aide et le bon interlocuteur dans <b>Profil → Aide & SAV</b>.

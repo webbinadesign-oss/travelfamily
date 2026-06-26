@@ -129,6 +129,12 @@ export interface FlightOffer {
   lowCost?: boolean;
   /** Partner booking deep link (Kiwi) — until full in-app booking is approved. */
   deepLink?: string;
+  /** Fare conditions (Duffel): change/refund allowed + penalty. */
+  conditions?: {
+    changeable?: boolean; changePenalty?: number;
+    refundable?: boolean; refundPenalty?: number;
+    currency?: string;
+  };
 }
 
 export interface HotelSearchQuery {

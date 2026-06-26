@@ -121,14 +121,42 @@ function BookingScreen({ booking, go }) {
 
   async function saveTrip(){
     // Best-effort real ticket issuance (Duffel) — never blocks the confirmation.
+    let orderRef = '';
     try{
       const offerId = flight.id || flight.offerId;
       const named = (paxIds||[]).filter(p=>p && p.givenName && p.familyName);
       if(offerId && named.length && window.WebbinaBackend && window.WebbinaBackend.createFlightOrder){
         const order = await window.WebbinaBackend.createFlightOrder(offerId, named);
-        if(order && order.bookingReference) setRef(order.bookingReference);
+        if(order && order.bookingReference){ orderRef = order.bookingReference; setRef(order.bookingReference); }
       }
     }catch(e){ /* issuance optional in test phase */ }
+
+    // Always keep a local copy so the reservation is visible end-to-end (incl. demo).
+    try{
+      const rec = {
+        id: 'L'+Date.now(), ref: orderRef || ref || ('TF-'+Math.random().toString(36).slice(2,8).toUpperCase()),
+        destination: dest.name||'', country: dest.country||'', img: dest.img||'',
+        airline: flight.airline||'', code: flight.code||'', time: flight.time||'', via: flight.via||'', dur: flight.dur||'',
+        origin: flight.origin||'', total: total, pax: pax, adults: adults, children: children,
+        travelers: (paxIds||[]).map(p=>({ givenName:p.givenName||'', familyName:p.familyName||'', bornOn:p.bornOn||'' })),
+        paid: payEnabled, createdAt: Date.now(),
+      };
+      const arr = JSON.parse(localStorage.getItem('tf_trips_local')||'[]');
+      arr.unshift(rec); localStorage.setItem('tf_trips_local', JSON.stringify(arr.slice(0,30)));
+    }catch(e){}
+
+    // Confirmation e-mail (no-op if mail not configured on the backend).
+    try{
+      const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
+      const email=(window.WebbinaAuth && window.WebbinaAuth.getEmail && window.WebbinaAuth.getEmail());
+      if(api && email){
+        const headers=Object.assign({'Content-Type':'application/json'}, (window.webbinaAuthHeaders?window.webbinaAuthHeaders():{}));
+        fetch(api+'/api/booking/confirm',{ method:'POST', headers, body:JSON.stringify({
+          email, destination:dest.name||'votre destination', ref:(orderRef||ref||''), total:Math.round(total), pax,
+        })}).catch(()=>{});
+      }
+    }catch(e){}
+
     try{
       if(window.WebbinaBackend){
         const api=(window.WEBBINA_API||'').replace(/\/+$/,'');

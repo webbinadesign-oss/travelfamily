@@ -115,16 +115,49 @@ function HelpScreen({ go, openChat }){
           </div>
         </div>
 
-        {/* 4 — Écrire (async, délai honnête) */}
-        <div className="card card--pad" style={{ marginTop:18 }}>
-          <b style={{ fontFamily:'var(--font-display)', fontSize:15 }}>Nous écrire</b>
-          <p className="micro" style={{ marginTop:4, lineHeight:1.5 }}>Une demande complexe que Webbina n'a pas résolue&nbsp;? Écrivez-nous : nous répondons <b>par e-mail sous 24 à 48&nbsp;h ouvrées</b>.</p>
-          <a className="btn btn--secondary btn--block" href={`mailto:${SUPPORT_EMAIL}?subject=Aide%20TravelFamily.AI`} style={{ marginTop:12, textDecoration:'none' }}>
-            <Icon n="send" size={17} /> Envoyer un message
-          </a>
-          <div className="micro" style={{ textAlign:'center', color:'var(--text-muted)', marginTop:8 }}>Membres <b>VIP</b> & <b>Premium</b> : réponse prioritaire.</div>
-        </div>
+        {/* 4 — Écrire (dépose un ticket dans la file SAV de la gérante) */}
+        <WriteToUs email={(window.LEGAL_INFO && window.LEGAL_INFO.email) || 'webbinadesign@gmail.com'} />
       </div>
+    </div>
+  );
+}
+
+/* Formulaire « Nous écrire » → dépose un vrai ticket SAV (fallback e-mail). */
+function WriteToUs({ email }){
+  const [msg, setMsg] = React.useState('');
+  const [state, setState] = React.useState('idle'); // idle | sending | sent | error
+  async function send(){
+    if(msg.trim().length < 2) return;
+    setState('sending');
+    try{
+      if(window.WebbinaBackend && WebbinaBackend.support){
+        await WebbinaBackend.support(msg.trim(), 'Demande depuis l\'app');
+        setState('sent'); setMsg('');
+      } else { throw new Error('no_backend'); }
+    }catch(e){
+      // Repli : e-mail si le backend est indisponible.
+      try{ window.location.href = 'mailto:'+email+'?subject=Aide%20TravelFamily.AI&body='+encodeURIComponent(msg); }catch(_){}
+      setState('error');
+    }
+  }
+  return (
+    <div className="card card--pad" style={{ marginTop:18 }}>
+      <b style={{ fontFamily:'var(--font-display)', fontSize:15 }}>Nous écrire</b>
+      {state==='sent' ? (
+        <div className="micro" style={{ marginTop:8, color:'var(--success)', lineHeight:1.5 }}>
+          <Icon n="check" size={14} /> Votre demande est bien envoyée. Nous répondons sous <b>24 à 48&nbsp;h ouvrées</b>.
+        </div>
+      ) : (
+        <>
+          <p className="micro" style={{ marginTop:4, lineHeight:1.5 }}>Une demande que Webbina n'a pas résolue&nbsp;? Écrivez-nous, nous répondons <b>sous 24 à 48&nbsp;h ouvrées</b>.</p>
+          <textarea className="sav-textarea" rows="3" placeholder="Votre message…" value={msg} onChange={e=>setMsg(e.target.value)} />
+          <button className="btn btn--secondary btn--block" style={{ marginTop:10 }} disabled={state==='sending'||msg.trim().length<2} onClick={send}>
+            <Icon n="send" size={17} /> {state==='sending' ? 'Envoi…' : 'Envoyer ma demande'}
+          </button>
+          {state==='error' && <div className="micro" style={{ marginTop:8, color:'var(--text-muted)' }}>Connexion indisponible — votre e-mail s'est ouvert en secours.</div>}
+          <div className="micro" style={{ textAlign:'center', color:'var(--text-muted)', marginTop:8 }}>Membres <b>VIP</b> &amp; <b>Premium</b> : réponse prioritaire.</div>
+        </>
+      )}
     </div>
   );
 }

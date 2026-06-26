@@ -13,11 +13,12 @@ import { packageRouter } from './package.routes.js';
 import { travelpayoutsRouter } from './travelpayouts.routes.js';
 import { loyaltyRouter } from './loyalty.routes.js';
 import { adminRouter } from './admin.routes.js';
+import { supportRouter } from './support.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-admin-1';
+export const BUILD_VERSION = 'phase3-sav-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -51,3 +52,4 @@ apiRouter.use('/package', packageRouter); // Package intelligent — vol+hôtel+
 apiRouter.use('/tp', travelpayoutsRouter); // Travelpayouts Data API — vrais prix + meilleures dates
 apiRouter.use('/loyalty', loyaltyRouter); // Récompenses Webbina — cagnotte + paliers (auto depuis saved_trips)
 apiRouter.use('/admin', adminRouter); // Espace Gérante — gestion clients, SAV, gestes (allowlist)
+apiRouter.use('/support', supportRouter); // SAV — création de ticket depuis l'app

@@ -309,6 +309,18 @@
       } catch (e) { return null; }
     },
 
+    /** Open a SAV ticket from inside the app (attaches the user if logged in). */
+    support: async function (message, subject, email) {
+      if (!api()) throw new Error('no_backend');
+      var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+      var body = { message: message };
+      if (subject) body.subject = subject;
+      if (email) body.email = email;
+      var r = await fetch(api() + '/api/support', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error('ticket_failed');
+      return await r.json();
+    },
+
     /** Add/register a passport for the logged-in user (private, RLS-protected). */
     addPassport: async function (p) {
       var id = uid(); if (!id || !api()) throw new Error('no_account');

@@ -358,6 +358,18 @@
       try { await fetch(api() + '/api/watch/' + id + '/' + watchId, { method: 'DELETE', headers: authHeaders() }); } catch (e) {}
     },
 
+    /** Formalités réelles (Gemini) pour une nationalité → destination. */
+    formalities: async function (nationality, destination, residence) {
+      if (!api()) return null;
+      try {
+        var p = new URLSearchParams({ nationality: nationality, destination: destination });
+        if (residence) p.set('residence', residence);
+        var r = await fetch(api() + '/api/formalities?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
     /** Annulation d'une commande Duffel (devis du remboursement puis confirmation). */
     cancelQuote: async function (orderId) {
       if (!api()) throw new Error('no_backend');

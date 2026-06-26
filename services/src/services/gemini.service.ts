@@ -103,7 +103,31 @@ export const geminiService = {
     throw lastErr instanceof Error ? lastErr : ApiError.upstream('gemini', 502);
   },
 
-  /** Streaming generator: yields text chunks via Gemini's SSE endpoint. */
+  /** Simple JSON generation from a single prompt (used by the formalities engine). */
+  async generateJSON(prompt: string): Promise<unknown> {
+    assertConfigured();
+    const models = workingModel ? [workingModel] : candidateModels();
+    let lastErr: unknown;
+    for (const model of models) {
+      try {
+        const data = await httpRequest<GeminiResponse>(
+          `${BASE}/${model}:generateContent`,
+          {
+            method: 'POST', provider: 'gemini', timeoutMs: 30_000, retries: 0,
+            query: { key: env.geminiApiKey },
+            body: {
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+            },
+          },
+        );
+        workingModel = model;
+        const txt = extractText(data) || '{}';
+        try { return JSON.parse(txt); } catch { return null; }
+      } catch (err) { lastErr = err; }
+    }
+    throw lastErr instanceof Error ? lastErr : ApiError.upstream('gemini', 502);
+  },
   async *streamChat(messages: ChatMessage[], context?: TripContext): AsyncGenerator<string> {
     assertConfigured();
     const models = workingModel ? [workingModel] : candidateModels();

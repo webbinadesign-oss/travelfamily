@@ -97,7 +97,12 @@ voiceRouter.post(
     }
 
     // 2) Fallback: Whisper — reads everything, incl. iPhone's mp4/aac.
-    const text = await sttService.transcribe(buf, mime);
-    res.json({ text, provider: 'whisper' });
+    //    Only if OpenAI is configured; otherwise stay 100% off OpenAI.
+    if (env.openaiApiKey) {
+      const text = await sttService.transcribe(buf, mime);
+      res.json({ text, provider: 'whisper' });
+      return;
+    }
+    res.json({ text: '', provider: 'none', note: 'format non pris en charge sans OpenAI' });
   }),
 );

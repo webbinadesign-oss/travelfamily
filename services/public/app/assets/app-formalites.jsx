@@ -87,6 +87,48 @@ function PassportsBlock() {
   );
 }
 
+/* Vérification de formalités RÉELLE (Gemini) — nationalité → destination. */
+function FormalitiesCheck(){
+  const NATS = [['FR','Française'],['BE','Belge'],['CH','Suisse'],['CA','Canadienne'],['MA','Marocaine'],['DZ','Algérienne'],['TN','Tunisienne'],['PT','Portugaise'],['ES','Espagnole'],['IT','Italienne']];
+  const [nat,setNat]=React.useState('FR');
+  const [dest,setDest]=React.useState('');
+  const [state,setState]=React.useState('idle'); // idle|loading|done|error
+  const [res,setRes]=React.useState(null);
+  const META={ green:{bg:'var(--success-bg)',fg:'var(--success)',br:'var(--success-border)',lbl:'Conforme'}, orange:{bg:'var(--warning-bg)',fg:'var(--warning)',br:'var(--warning-border)',lbl:'Vigilance'}, red:{bg:'var(--error-bg, #FCEBEB)',fg:'var(--error, #D43B3B)',br:'var(--error, #D43B3B)',lbl:'Action requise'} };
+  async function check(){
+    if(dest.trim().length<2) return; setState('loading'); setRes(null);
+    try{
+      const label=(NATS.find(n=>n[0]===nat)||[])[1]||nat;
+      const r = window.WebbinaBackend && WebbinaBackend.formalities ? await WebbinaBackend.formalities(label, dest.trim()) : null;
+      if(r && r.items){ setRes(r); setState('done'); } else setState('error');
+    }catch(e){ setState('error'); }
+  }
+  return (
+    <div className="card card--pad" style={{ marginBottom:14 }}>
+      <h4 style={{ fontSize:15, marginBottom:8 }}>Vérifier une destination</h4>
+      <div className="row gap2" style={{ flexWrap:'wrap', alignItems:'center' }}>
+        <select className="watch-in date" style={{ width:150 }} value={nat} onChange={e=>setNat(e.target.value)}>
+          {NATS.map(n=><option key={n[0]} value={n[0]}>{n[1]}</option>)}
+        </select>
+        <input className="watch-in date" style={{ flex:1, minWidth:120 }} placeholder="Destination (ex. Thaïlande)" value={dest} onChange={e=>setDest(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} />
+        <button className="btn btn--primary btn--sm" disabled={state==='loading'||dest.trim().length<2} onClick={check}>{state==='loading'?'…':'Vérifier'}</button>
+      </div>
+      {state==='error' && <div className="micro" style={{ marginTop:8, color:'var(--text-muted)' }}>Vérification indisponible — réessayez dans un instant.</div>}
+      {state==='done' && res && (
+        <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:8 }}>
+          {res.items.map((it,i)=>{ const m=META[it.status]||META.orange; return (
+            <div key={i} style={{ padding:'10px 12px', borderRadius:'var(--r-md)', background:m.bg, border:'1px solid '+m.br }}>
+              <div className="row between"><b style={{ fontFamily:'var(--font-display)', fontSize:13.5 }}>{it.label}</b><span className="micro" style={{ color:m.fg, fontWeight:700 }}>{m.lbl}</span></div>
+              <div className="micro" style={{ color:'var(--text-2)', marginTop:3, lineHeight:1.45 }}>{it.detail}</div>
+            </div>
+          ); })}
+          <div className="micro" style={{ color:'var(--text-muted)', lineHeight:1.5 }}>Mis à jour {res.updatedAt} · <b>Indicatif</b> — vérifiez sur France Diplomatie (diplomatie.gouv.fr) avant de partir.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FormalitesScreen({ go }) {
   const F = TF.FORMALITES;
   const [open, setOpen] = React.useState('kids');
@@ -129,6 +171,7 @@ function FormalitesScreen({ go }) {
         </div>
 
         {/* items */}
+        <FormalitiesCheck />
         <div className="card card--pad" style={{ textAlign:'center', borderStyle:'dashed' }}>
           <div style={{ width:54, height:54, borderRadius:'50%', margin:'2px auto 10px', background:'var(--ocean-50, color-mix(in srgb, var(--ocean) 12%, var(--surface)))', display:'grid', placeItems:'center' }}>
             <Icon n="compass" size={26} style={{ color:'var(--ocean)' }} />

@@ -18,6 +18,28 @@ function BookingScreen({ booking, go }) {
   const [quote, setQuote] = React.useState(null);     // {base, fee, total, label, currency}
   const [payEnabled, setPayEnabled] = React.useState(false);
   const [ref, setRef] = React.useState('');
+  const [paxIds, setPaxIds] = React.useState([]);
+  const [savedPax, setSavedPax] = React.useState([]);
+
+  // Saved passports/travelers → reliable autofill (no typos).
+  React.useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const out=[];
+        if(window.WebbinaBackend && window.WebbinaBackend.passports){
+          const ps = await window.WebbinaBackend.passports();
+          (ps||[]).forEach(p=>{ if(p){ const parts=String(p.holder||p.fullName||'').trim().split(' '); out.push({ givenName:parts.slice(0,-1).join(' ')||parts[0]||'', familyName:parts.slice(-1)[0]||'', bornOn:p.birthdate||p.bornOn||'', gender:p.gender||'' }); } });
+        }
+        if(!out.length && window.WebbinaBackend && window.WebbinaBackend.travelers){
+          const ts = await window.WebbinaBackend.travelers();
+          (ts||[]).forEach(t=>{ if(t){ const parts=String(t.fullName||'').trim().split(' '); out.push({ givenName:parts.slice(0,-1).join(' ')||parts[0]||'', familyName:parts.slice(-1)[0]||'', bornOn:t.birthdate||'', gender:'' }); } });
+        }
+        if(!cancelled) setSavedPax(out);
+      }catch(e){}
+    })();
+    return ()=>{ cancelled=true; };
+  }, []);
 
   // Stripe Elements refs
   const stripeRef = React.useRef(null);
@@ -98,6 +120,15 @@ function BookingScreen({ booking, go }) {
   }, [step, payEnabled, base]);
 
   async function saveTrip(){
+    // Best-effort real ticket issuance (Duffel) — never blocks the confirmation.
+    try{
+      const offerId = flight.id || flight.offerId;
+      const named = (paxIds||[]).filter(p=>p && p.givenName && p.familyName);
+      if(offerId && named.length && window.WebbinaBackend && window.WebbinaBackend.createFlightOrder){
+        const order = await window.WebbinaBackend.createFlightOrder(offerId, named);
+        if(order && order.bookingReference) setRef(order.bookingReference);
+      }
+    }catch(e){ /* issuance optional in test phase */ }
     try{
       if(window.WebbinaBackend){
         const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
@@ -193,6 +224,7 @@ function BookingScreen({ booking, go }) {
               </div>
               <div className="micro" style={{ marginTop:10, color:'var(--text-2)' }}><Icon n="users" size={12} /> {pax} voyageur{pax>1?'s':''} au total</div>
             </div>
+            {typeof PaxIdentity!=='undefined' && <PaxIdentity count={pax} value={paxIds} onChange={setPaxIds} saved={savedPax} />}
             <PriceBlock unit={unit} pax={pax} base={base} fee={fee} total={total} label={quote&&quote.label} />
             <button className="btn btn--primary btn--block" onClick={()=>setStep(1)}>Procéder au paiement <Icon n="arrowRight" size={18} /></button>
           </div>

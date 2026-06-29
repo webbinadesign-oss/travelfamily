@@ -4,15 +4,17 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, valid } from '../middleware/validate.js';
 import { openaiService } from '../services/openai.service.js';
 import { geminiService } from '../services/gemini.service.js';
+import { claudeService } from '../services/claude.service.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import type { ChatRequest } from '../types/index.js';
 
 export const chatRouter = Router();
 
-/** Brain order: Gemini (free) → OpenAI (paid fallback). */
+/** Brain order: Claude (fast+sharp) → Gemini (free) → OpenAI (paid fallback). */
 function brains() {
-  const list = [] as Array<{ name: string; svc: typeof geminiService | typeof openaiService }>;
+  const list = [] as Array<{ name: string; svc: typeof geminiService | typeof openaiService | typeof claudeService }>;
+  if (env.claudeApiKey) list.push({ name: 'claude', svc: claudeService });
   if (env.geminiApiKey) list.push({ name: 'gemini', svc: geminiService });
   if (env.openaiApiKey) list.push({ name: 'openai', svc: openaiService });
   return list;

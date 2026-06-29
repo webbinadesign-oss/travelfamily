@@ -54,6 +54,8 @@ export interface Env {
   supabaseSchema: string;
 
   adminEmails: string[];      // e-mails autorisés à l'Espace Gérante (admin)
+  claudeApiKey: string;       // Anthropic Claude — cerveau prioritaire de Webbina
+  claudeModel: string;
   resendApiKey: string;       // Resend — envoi d'e-mails (confirmations)
   mailFrom: string;           // expéditeur des e-mails
 
@@ -116,6 +118,8 @@ export const env: Env = {
   supabaseSchema: str('SUPABASE_SCHEMA', 'public'),
 
   adminEmails: list('ADMIN_EMAILS', ['webbinadesign@gmail.com']),
+  claudeApiKey: str('CLAUDE_API_KEY'),
+  claudeModel: str('CLAUDE_MODEL', 'claude-sonnet-4-20250514'),
   resendApiKey: str('RESEND_API_KEY'),
   mailFrom: str('MAIL_FROM', 'TravelFamily.AI <onboarding@resend.dev>'),
 
@@ -148,6 +152,7 @@ export function integrationStatus(): Record<string, boolean> {
   return {
     openai: Boolean(env.openaiApiKey),
     gemini: Boolean(env.geminiApiKey),
+    claude: Boolean(env.claudeApiKey),
     elevenlabs: Boolean(env.elevenLabsApiKey),
     amadeus: Boolean(env.amadeusApiKey && env.amadeusApiSecret),
     duffel: Boolean(env.duffelApiKey),

@@ -177,6 +177,7 @@ function ApercuTab({ d, go, book }) {
       </div>
       <WeatherWidget dest={d} />
       <PackageCard dest={d} book={book} />
+      {typeof FullItinerary!=='undefined' && <FullItinerary departHub={(d.originIata||d.origin||'votre aéroport de départ')} arriveHub={(d.name||d.city||'')} pax={d.pax} />}
       {/* formalités quick link */}
       <button className="card card--hover" onClick={()=>go('formalites')} style={{ width:'100%', textAlign:'left', padding:14, display:'flex', alignItems:'center', gap:12, border:'1px solid var(--border)' }}>
         <div style={{ width:44, height:44, borderRadius:12, background:'var(--warning-bg)', display:'grid', placeItems:'center', flex:'none' }}><Icon n="shield" size={22} style={{ color:'var(--warning)' }} /></div>

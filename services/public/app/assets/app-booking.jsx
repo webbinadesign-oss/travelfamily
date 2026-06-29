@@ -104,7 +104,11 @@ function BookingScreen({ booking, go }) {
   }, [base, pax]);
 
   const fee = quote ? quote.fee : Math.round(9*pax);
-  const total = quote ? quote.total : base + fee;
+  const baseTotal = quote ? quote.total : base + fee;
+  // Itinerary legs added by the user (bus, carpool, transfer, parking…).
+  const [itinExtra, setItinExtra] = React.useState(()=>{ try{ return (window.tfItin&&window.tfItin.total())||0; }catch(e){ return 0; } });
+  React.useEffect(()=>{ const f=()=>{ try{ setItinExtra((window.tfItin&&window.tfItin.total())||0); }catch(e){} }; window.addEventListener('tf-itin-change', f); return ()=>window.removeEventListener('tf-itin-change', f); }, []);
+  const total = baseTotal + itinExtra;
 
   // When entering the payment step with real Stripe enabled, mount the Payment Element.
   React.useEffect(()=>{
@@ -153,11 +157,13 @@ function BookingScreen({ booking, go }) {
         origin: flight.origin||'', total: total, pax: pax, adults: adults, children: children,
         travelers: (paxIds||[]).map(p=>({ givenName:p.givenName||'', familyName:p.familyName||'', bornOn:p.bornOn||'' })),
         conditions: condText(flight),
+        itinLegs: (window.tfItin ? window.tfItin.list() : []),
         paid: payEnabled, createdAt: Date.now(),
       };
       const arr = JSON.parse(localStorage.getItem('tf_trips_local')||'[]');
       arr.unshift(rec); localStorage.setItem('tf_trips_local', JSON.stringify(arr.slice(0,30)));
     }catch(e){}
+    try{ if(window.tfItin) window.tfItin.clear(); }catch(e){}
 
     // Confirmation e-mail (no-op if mail not configured on the backend).
     try{
@@ -268,6 +274,7 @@ function BookingScreen({ booking, go }) {
               <div className="micro" style={{ marginTop:10, color:'var(--text-2)' }}><Icon n="users" size={12} /> {pax} voyageur{pax>1?'s':''} au total</div>
             </div>
             {typeof PaxIdentity!=='undefined' && <PaxIdentity count={pax} value={paxIds} onChange={setPaxIds} saved={savedPax} />}
+            {typeof ItinCartSummary!=='undefined' && <ItinCartSummary />}
             <div className="card card--pad cond-card">
               <div className="row gap2" style={{ alignItems:'flex-start' }}>
                 <Icon n="info" size={16} />

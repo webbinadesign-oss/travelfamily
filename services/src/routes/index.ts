@@ -16,11 +16,12 @@ import { adminRouter } from './admin.routes.js';
 import { supportRouter } from './support.routes.js';
 import { watchRouter } from './watch.routes.js';
 import { formalitiesRouter } from './formalities.routes.js';
+import { itineraryRouter } from './itinerary.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-formalities-1';
+export const BUILD_VERSION = 'phase3-itinerary-2';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -57,3 +58,4 @@ apiRouter.use('/admin', adminRouter); // Espace Gérante — gestion clients, SA
 apiRouter.use('/support', supportRouter); // SAV — création de ticket depuis l'app
 apiRouter.use('/watch', watchRouter); // Alerte baisse de prix (Premium)
 apiRouter.use('/formalities', formalitiesRouter); // Formalités réelles (Gemini, dynamique)
+apiRouter.use('/itinerary', itineraryRouter); // Itinéraire porte-à-porte multimodal (Google Routes)

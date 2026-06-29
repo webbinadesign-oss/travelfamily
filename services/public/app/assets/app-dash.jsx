@@ -207,6 +207,8 @@ function TripDetailScreen({ trip, go }){
           </div>
         )}
 
+        {typeof FullItinerary!=='undefined' && <FullItinerary departHub={(t.origin||'votre aéroport de départ')} arriveHub={t.destination||''} pax={t.pax} />}
+
         <button className="card card--pad trip-link" onClick={()=>go('formalites')}>
           <div className="mem-ic"><Icon n="shield" size={18} /></div>
           <b style={{ flex:1, textAlign:'left', fontFamily:'var(--font-display)', fontSize:14.5 }}>Vérifier mes formalités</b>

@@ -456,6 +456,15 @@
   .trip-hero::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg,transparent 40%,rgba(15,23,42,.6) 100%); }
   .trip-hero-cap{ position:relative; z-index:1; padding:16px; }
   .trip-link{ display:flex; align-items:center; gap:12px; width:100%; margin-top:12px; cursor:pointer; }
+
+  /* ===== ITINERARY (door-to-hub) ===== */
+  .itin-opt{ border:1px solid var(--border); border-radius:var(--r-md); overflow:hidden; background:var(--surface); }
+  .itin-head{ display:flex; align-items:center; gap:10px; width:100%; padding:11px 12px; background:none; border:none; cursor:pointer; }
+  .itin-ic{ width:34px; height:34px; border-radius:10px; flex:none; display:grid; place-items:center; background:var(--ocean-50); color:var(--ocean-700); }
+  .itin-cost{ font-family:var(--font-display); font-weight:800; font-size:13.5px; color:var(--text); flex:none; }
+  .itin-body{ padding:4px 12px 12px; border-top:1px dashed var(--border); }
+  .itin-step{ display:flex; gap:9px; align-items:flex-start; padding:7px 0; }
+  .itin-step-ic{ width:24px; height:24px; border-radius:50%; flex:none; display:grid; place-items:center; background:var(--surface-sunk); color:var(--text-2); margin-top:1px; }
   .cond-card{ background:var(--gold-50,#FBF1DA); border:1px solid color-mix(in srgb, var(--gold-700,#B8841C) 30%, transparent); }
   .cond-card svg{ color:var(--gold-700,#B8841C); flex:none; margin-top:1px; }
 
@@ -660,6 +669,7 @@
   <script type="text/babel" src="assets/app-convo.jsx"></script>
   <script type="text/babel" src="assets/app-results.jsx"></script>
   <script type="text/babel" src="assets/app-pax.jsx"></script>
+  <script type="text/babel" src="assets/app-itinerary.jsx"></script>
   <script type="text/babel" src="assets/app-booking.jsx"></script>
   <script type="text/babel" src="assets/app-explorer.jsx"></script>
   <script type="text/babel" src="assets/app-formalites.jsx"></script>

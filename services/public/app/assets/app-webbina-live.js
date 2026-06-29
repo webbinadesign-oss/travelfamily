@@ -370,6 +370,50 @@
       } catch (e) { return null; }
     },
 
+    /** Itinéraire porte-à-porte pour rejoindre le 1er transport (Google Routes). */
+    itineraryToHub: async function (origin, hub, opts) {
+      if (!api()) return null;
+      try {
+        var p = new URLSearchParams({ origin: origin, hub: hub });
+        opts = opts || {};
+        if (opts.family) p.set('family', '1');
+        if (opts.budget) p.set('budget', '1');
+        if (opts.pax) p.set('pax', String(opts.pax));
+        var r = await fetch(api() + '/api/itinerary/to-hub?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
+    /** Dernier km : aéroport/gare d'arrivée → hôtel/destination. */
+    itineraryFromHub: async function (hub, destination, opts) {
+      if (!api()) return null;
+      try {
+        var p = new URLSearchParams({ hub: hub, destination: destination });
+        opts = opts || {};
+        if (opts.family) p.set('family', '1');
+        if (opts.budget) p.set('budget', '1');
+        if (opts.pax) p.set('pax', String(opts.pax));
+        var r = await fetch(api() + '/api/itinerary/from-hub?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
+    /** Itinéraire complet porte-à-porte (départ + arrivée) en une fois. */
+    itineraryFull: async function (q) {
+      if (!api() || !q) return null;
+      try {
+        var p = new URLSearchParams({ origin: q.origin, departHub: q.departHub, arriveHub: q.arriveHub, destination: q.destination });
+        if (q.family) p.set('family', '1');
+        if (q.budget) p.set('budget', '1');
+        if (q.pax) p.set('pax', String(q.pax));
+        var r = await fetch(api() + '/api/itinerary/full?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
     /** Annulation d'une commande Duffel (devis du remboursement puis confirmation). */
     cancelQuote: async function (orderId) {
       if (!api()) throw new Error('no_backend');

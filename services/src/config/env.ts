@@ -56,6 +56,7 @@ export interface Env {
   adminEmails: string[];      // e-mails autorisés à l'Espace Gérante (admin)
   claudeApiKey: string;       // Anthropic Claude — cerveau prioritaire de Webbina
   claudeModel: string;
+  kiwitaxiUrl: string;        // Lien affilié Kiwitaxi (transferts/taxi, via Travelpayouts)
   resendApiKey: string;       // Resend — envoi d'e-mails (confirmations)
   mailFrom: string;           // expéditeur des e-mails
 
@@ -120,6 +121,7 @@ export const env: Env = {
   adminEmails: list('ADMIN_EMAILS', ['webbinadesign@gmail.com']),
   claudeApiKey: str('CLAUDE_API_KEY'),
   claudeModel: str('CLAUDE_MODEL', 'claude-sonnet-4-20250514'),
+  kiwitaxiUrl: str('KIWITAXI_URL', 'https://kiwitaxi.tpo.lu/caaEur43'),
   resendApiKey: str('RESEND_API_KEY'),
   mailFrom: str('MAIL_FROM', 'TravelFamily.AI <onboarding@resend.dev>'),
 

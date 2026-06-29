@@ -21,7 +21,7 @@ import { itineraryRouter } from './itinerary.routes.js';
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-claude-1';
+export const BUILD_VERSION = 'phase3-kiwitaxi-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {

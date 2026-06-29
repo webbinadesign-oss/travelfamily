@@ -144,7 +144,9 @@ function parkingUrl(hub: string): string {
   return `https://www.parkos.fr/recherche/?q=${encodeURIComponent(hub)}`;
 }
 function transferUrl(from: string, to: string): string {
-  // Private transfer / taxi (affiliate-ready via Travelpayouts/GetTransfer later).
+  // Kiwitaxi via Travelpayouts (affiliate). Configurable; falls back to the
+  // generic GetTransfer search if no affiliate link is set.
+  if (env.kiwitaxiUrl) return env.kiwitaxiUrl;
   return `https://gettransfer.com/en?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
 }
 

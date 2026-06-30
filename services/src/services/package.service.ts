@@ -83,10 +83,19 @@ export const packageService = {
     // 3) REAL activities (Google Places), best 3.
     let activities: PackageResult['activities'] = { items: [], total: 0, source: 'estimate' };
     try {
-      if (input.lat != null && input.lng != null) {
+      // Use provided coordinates, or geocode the destination name as a fallback
+      // so activities load even when the devis didn't pass lat/lng.
+      let lat = input.lat, lng = input.lng;
+      if (lat == null || lng == null) {
+        try {
+          const geo = await googleMapsService.geocode(input.destinationName);
+          if (geo && geo.lat != null && geo.lng != null) { lat = geo.lat; lng = geo.lng; }
+        } catch (e) { logger.warn('package geocode failed', { err: String(e) }); }
+      }
+      if (lat != null && lng != null) {
         const places = await googleMapsService.searchPlaces({
           query: `activités en famille à ${input.destinationName}`,
-          near: { lat: input.lat, lng: input.lng },
+          near: { lat, lng },
           radiusKm: 25,
         });
         const top = (places || []).filter((p: any) => p.rating).slice(0, 3).map((p: any) => ({ name: p.name, rating: p.rating }));

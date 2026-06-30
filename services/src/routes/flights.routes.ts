@@ -6,6 +6,7 @@ import { env } from '../config/env.js';
 import { duffelService } from '../services/duffel.service.js';
 import { duffelStaysService } from '../services/duffel-stays.service.js';
 import { kiwiService } from '../services/kiwi.service.js';
+import { travelpayoutsService } from '../services/travelpayouts.service.js';
 import { amadeusService } from '../services/amadeus.service.js';
 import { ApiError } from '../lib/ApiError.js';
 import type { FlightSearchQuery, HotelSearchQuery } from '../types/index.js';
@@ -54,6 +55,37 @@ flightsRouter.get(
         kiwiService.searchFlights(q)
           .then((offers) => ({ src: 'kiwi', offers }))
           .catch(() => ({ src: 'kiwi', offers: [] })),
+      );
+    }
+    // Travelpayouts (Aviasales) — REAL low-cost fares (Ryanair, easyJet, Transavia,
+    // Vueling, Wizz…) shown alongside Duffel. Indicative price + tracked deep link
+    // (commissioned); in-app booking of LCCs arrives with Kiwi once approved.
+    if (travelpayoutsService.configured()) {
+      tasks.push(
+        travelpayoutsService.cheapestForRoute({
+          origin: q.origin, destination: q.destination,
+          departureDate: q.departureDate, returnDate: q.returnDate,
+          oneWay: !q.returnDate, limit: 6,
+        })
+          .then((fares) => ({
+            src: 'travelpayouts',
+            offers: fares.map((f, i) => ({
+              id: `tp-${f.origin}${f.destination}-${i}`,
+              price: { amount: f.price, currency: f.currency },
+              oneWay: !f.returnDate,
+              stops: f.transfers || 0,
+              durationIso: '',
+              segments: [{
+                origin: f.origin, destination: f.destination,
+                departingAt: f.departureDate, arrivingAt: f.departureDate,
+                carrierCode: f.airline || '', flightNumber: f.flightNumber || '',
+              }],
+              source: 'lowcost' as const,
+              deepLink: f.bookLink,
+              lowCost: true,
+            } as unknown as import('../types/index.js').FlightOffer)),
+          }))
+          .catch(() => ({ src: 'travelpayouts', offers: [] })),
       );
     }
     if (tasks.length === 0) {

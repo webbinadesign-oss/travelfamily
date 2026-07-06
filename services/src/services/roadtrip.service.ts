@@ -16,8 +16,6 @@
 import { geminiService } from './gemini.service.js';
 import { travelpayoutsService } from './travelpayouts.service.js';
 import { itineraryService } from './itinerary.service.js';
-import { duffelService } from './duffel.service.js';
-import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 
 export interface RoadStop {
@@ -72,8 +70,9 @@ async function cachedLeg(cache: LegCache, from: string, to: string): Promise<{ d
 async function cachedFare(cache: FareCache, origin: string, dest: string, start?: string, end?: string): Promise<number | null> {
   const key = `${origin}|${dest}|${start || ''}|${end || ''}`;
   if (cache.has(key)) return cache.get(key)!;
-  const prices: number[] = [];
-  // Source 1: Travelpayouts (includes low-cost: Ryanair, easyJet, Transavia…).
+  // Travelpayouts only — fast, cached, and already includes low-cost carriers
+  // (Ryanair, easyJet, Transavia…). Duffel per-cell was far too slow for the grid.
+  let min: number | null = null;
   if (travelpayoutsService.configured()) {
     try {
       const fares = await travelpayoutsService.cheapestForRoute({
@@ -81,20 +80,9 @@ async function cachedFare(cache: FareCache, origin: string, dest: string, start?
         ...(start ? { departureDate: start } : {}), ...(end ? { returnDate: end } : {}),
         oneWay: !end, limit: 3,
       });
-      if (fares.length) prices.push(fares[0]!.price);
+      if (fares.length) min = fares[0]!.price;
     } catch { /* ignore */ }
   }
-  // Source 2: Duffel live search (covers major carriers TP may miss) — needs a date.
-  if (start && env.duffelApiKey) {
-    try {
-      const offers = await duffelService.searchFlights({
-        origin, destination: dest, departureDate: start,
-        ...(end ? { returnDate: end } : {}), adults: 1, maxResults: 1,
-      } as Parameters<typeof duffelService.searchFlights>[0]);
-      if (offers.length) prices.push(offers[0]!.price.amount);
-    } catch { /* ignore */ }
-  }
-  const min = prices.length ? Math.min(...prices) : null;
   cache.set(key, min);
   return min;
 }

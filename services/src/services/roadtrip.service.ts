@@ -254,7 +254,9 @@ async function enrichVariant(
   let flight: RoadTripPlan['flight'];
   if (input.mode === 'fly-drive' && input.originIata) {
     const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 2);
-    const origins = input.originIata === 'AUTO' ? (input.originAirports || ['MPL', 'MRS', 'TLS']) : [input.originIata];
+    // Always compare nearby airports (Marseille, Barcelone…), plus the selected one.
+    const nearby = input.originAirports || ['MPL', 'MRS', 'TLS'];
+    const origins = input.originIata === 'AUTO' ? nearby : Array.from(new Set([input.originIata, ...nearby]));
     const pairs: Array<{ o: string; a: string }> = [];
     for (const o of origins) for (const a of arrivals) pairs.push({ o, a });
     const fares = await Promise.all(pairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, input.endDate).then((price) => ({ ...p, price }))));
@@ -348,8 +350,9 @@ export const roadtripService = {
   async options(input: RoadTripInput): Promise<RoadTripPlan[]> {
     const variants = await generateVariants(input);
     if (!variants.length) return [];
-    // Resolve nearest departure airports ONCE (AUTO = airports ≤3h from home).
-    if (input.mode === 'fly-drive' && input.originIata === 'AUTO') {
+    // Always resolve nearby departure airports so the comparison shows Marseille,
+    // Barcelone, etc. — whether the user chose AUTO or a specific airport.
+    if (input.mode === 'fly-drive') {
       input = { ...input, originAirports: await nearestAirports(input.origin) };
     }
     const legCache: LegCache = new Map();

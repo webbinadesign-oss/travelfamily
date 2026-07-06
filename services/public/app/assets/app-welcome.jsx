@@ -490,39 +490,55 @@ function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav 
         <div style={{ margin:'20px 0 6px' }}>
           <h2 style={{ fontSize:27, lineHeight:1.15 }}>Où partons-nous<br/>en famille&nbsp;?</h2>
         </div>
-        <button className="ai-search" onClick={()=>openChat('home')} style={{ width:'100%', marginTop:14, cursor:'pointer' }}>
-          <Icon n="sparkles" cls="spark" size={22} />
-          <span style={{ flex:1, textAlign:'left', color:'var(--text-muted)', fontWeight:500 }}>Dites-moi votre rêve de vacances…</span>
-          <span className="btn btn--primary btn--icon" style={{ minHeight:42, width:42 }}><Icon n="mic" size={18} /></span>
-        </button>
       </div>
 
-      <GlobeParcours openParcours={openParcours} />
+      <SimpleModeBanner />
+
+      <GlobeParcours
+        items={[
+          { id:'help', t:'Aidez-moi à trouver', d:'Je vous pose quelques questions et je m\'occupe de tout, pas à pas.', ic:'sparkles', cta:'Discuter avec Webbina', line:"Vous ne savez pas par où commencer ? Laissez-moi vous guider, je vous pose quelques questions simples et je fais le reste." },
+          { id:'know', t:'Je sais où et quand', d:'Vous avez une idée précise ? Entrez vos dates et votre destination.', ic:'compass', cta:'Lancer ma recherche', line:"Vous avez déjà votre idée en tête ? Parfait, dites-moi où et quand, j'optimise chaque réservation." },
+          { id:'inspire', t:'Inspirez-moi', d:'Envie d\'évasion sans idée précise ? Je vous déniche des pépites.', ic:'globe', cta:'Me faire rêver', line:"Envie de partir mais sans destination précise ? Laissez-moi vous surprendre avec de belles idées de voyage." },
+        ]}
+        onPick={(id)=>{ if(id==='help') openChat('home'); else if(id==='know'){ try{ window.__TF_RT_PREFILL={}; }catch(e){} go('roadtrip'); } else openChat('04', 'Fais-moi rêver ! Surprends-moi avec une pépite de voyage en famille. Pose-moi les questions nécessaires.'); }}
+        kicker="Par où commencer ?"
+        heading="Tournez le globe et touchez ce qui vous ressemble."
+      />
 
       <div className="home-sep"></div>
 
-      <ReserverHub openReserver={openReserver} openChat={openChat} />
-
-      <div className="home-sep"></div>
-
-      <button className="card card--pad rt-entry" onClick={()=>go('roadtrip')}>
+      <button className="card card--pad rt-entry" style={{ margin:'0 14px' }} onClick={()=>go('roadtrip')}>
         <div className="rt-entry-ic"><Icon n="route" size={22} /></div>
         <div style={{ flex:1, textAlign:'left' }}>
           <b style={{ fontFamily:'var(--font-display)', fontSize:16 }}>Carnet de route sur mesure</b>
-          <div className="micro" style={{ marginTop:2 }}>Un séjour multi-villes clé en main : itinéraire, hôtels comparés, budget complet.</div>
+          <div className="micro" style={{ marginTop:2 }}>Un séjour complet clé en main : itinéraire, hôtels comparés, budget.</div>
         </div>
         <Icon n="chevronRight" size={20} style={{ color:'var(--text-muted)', flex:'none' }} />
       </button>
 
-      <div className="home-sep"></div>
+      <div style={{ height:20 }}></div>
+      <FloatingWebbina onClick={()=>openChat('home')} />
+    </div>
+  );
+}
 
+/* Onglet Découvrir — bons plans, inspirations, réservation directe, premium. */
+function DecouvrirScreen({ go, openChat, openReserver, favs, toggleFav }){
+  return (
+    <div className="screen">
+      <div style={{ padding:'16px 18px 2px' }}>
+        <h2 style={{ fontSize:24 }}>Découvrir</h2>
+        <div className="micro" style={{ marginTop:2 }}>Bons plans, inspirations et réservation directe.</div>
+      </div>
+
+      <div className="home-sep"></div>
+      <ReserverHub openReserver={openReserver} openChat={openChat} />
+
+      <div className="home-sep"></div>
       <BonPlanDuJour go={go} openChat={openChat} />
 
       <div className="home-sep"></div>
-
       {typeof SponsoredRow!=='undefined' && <SponsoredRow limit={2} onPremium={()=>go('premium')} />}
-
-      <div className="home-sep"></div>
 
       <div style={{ padding:'18px 0 6px' }}>
         <div className="row between" style={{ padding:'0 18px', marginBottom:12 }}>
@@ -530,7 +546,6 @@ function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav 
             <div className="res-eyebrow"><Icon n="heart" size={13} />Pour vous</div>
             <h3 style={{ fontSize:19, marginTop:6 }}>Inspirations</h3>
           </div>
-          <span className="micro" style={{ color:'var(--ocean-700)', fontWeight:700, alignSelf:'flex-end' }}>Tout voir</span>
         </div>
         <Carousel>
           {TF.DESTINATIONS.map(d=>(
@@ -554,6 +569,16 @@ function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav 
         </button>
       </div>
     </div>
+  );
+}
+
+/* Bouée permanente : reprendre la main avec Webbina. */
+function FloatingWebbina({ onClick }){
+  return (
+    <button className="float-web" onClick={onClick} aria-label="Parler à Webbina">
+      <LivingWebbina size={38} state="idle" expr="happy" />
+      <span>Webbina</span>
+    </button>
   );
 }
 
@@ -649,4 +674,34 @@ function ParcoursIntakeScreen({ parcours, go, openChat }) {
   );
 }
 
-Object.assign(window, { WelcomeScreen, AuthScreen, HomeScreen, ParcoursIntakeScreen });
+function applySimpleMode(on){
+  try{
+    document.body.classList.toggle('tf-simple', !!on);
+    localStorage.setItem('tf_simple', on?'1':'0');
+  }catch(e){}
+}
+function SimpleModeBanner(){
+  const [on,setOn]=React.useState(()=>{ try{ return localStorage.getItem('tf_simple')==='1'; }catch(e){ return false; } });
+  const [dismissed,setDismissed]=React.useState(()=>{ try{ return localStorage.getItem('tf_simple_seen')==='1'; }catch(e){ return false; } });
+  React.useEffect(()=>{ applySimpleMode(on); }, []);
+  function enable(){ setOn(true); applySimpleMode(true); try{ localStorage.setItem('tf_simple_seen','1'); }catch(e){} }
+  function later(){ setDismissed(true); try{ localStorage.setItem('tf_simple_seen','1'); }catch(e){} }
+  if(on){
+    return (
+      <div className="simple-tip" style={{ margin:'0 14px 8px' }}>
+        <Icon n="check" size={16} /> <span style={{ flex:1 }}>Mode simplifié activé — affichage plus grand et guidé.</span>
+        <button className="simple-off" onClick={()=>{ setOn(false); applySimpleMode(false); }}>Désactiver</button>
+      </div>
+    );
+  }
+  if(dismissed) return null;
+  return (
+    <div className="simple-tip" style={{ margin:'0 14px 8px' }}>
+      <span style={{ flex:1 }}>👵 Besoin d'un affichage <b>plus grand et plus guidé</b> ?</span>
+      <button className="simple-on" onClick={enable}>Activer</button>
+      <button className="simple-off" onClick={later}>Plus tard</button>
+    </div>
+  );
+}
+
+Object.assign(window, { WelcomeScreen, AuthScreen, HomeScreen, DecouvrirScreen, ParcoursIntakeScreen, SimpleModeBanner, applySimpleMode });

@@ -565,6 +565,24 @@
   .pg-chip{ flex:none; display:flex; flex-direction:column; align-items:center; gap:2px; border:1.5px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:9px 12px; cursor:pointer; }
   .pg-chip span{ font-size:10px; color:var(--text-muted); } .pg-chip b{ font-family:var(--font-display); font-size:13px; }
 
+  /* ===== MODE SIMPLIFIÉ (senior) ===== */
+  .simple-tip{ display:flex; align-items:center; gap:10px; background:var(--ocean-50); border:1px solid color-mix(in srgb, var(--ocean-700) 25%, transparent); border-radius:var(--r-md); padding:11px 13px; font-size:13.5px; color:var(--text); }
+  .simple-tip svg{ color:var(--ocean-700); flex:none; }
+  .simple-on{ flex:none; border:none; background:var(--ocean-700); color:#fff; font:700 12.5px var(--font-display); border-radius:var(--r-pill); padding:7px 14px; cursor:pointer; }
+  .simple-off{ flex:none; border:none; background:transparent; color:var(--text-muted); font:600 12.5px var(--font-display); padding:7px 6px; cursor:pointer; }
+  body.tf-simple{ font-size:118%; }
+  body.tf-simple .btn, body.tf-simple .globe-nav{ min-height:54px; font-size:16px; }
+  body.tf-simple .ai-search{ min-height:64px; }
+  body.tf-simple .micro{ font-size:13.5px; }
+  body.tf-simple .tabbar-item{ font-size:12px; }
+  body.tf-simple h2{ font-size:30px; } body.tf-simple h3{ font-size:22px; }
+  body.tf-simple .globe-face .gf-title{ font-size:17px; } body.tf-simple .globe-face .gf-desc{ font-size:14px; }
+
+  /* ===== FLOATING WEBBINA ===== */
+  .float-web{ position:sticky; bottom:16px; margin:8px 14px 0 auto; display:flex; align-items:center; gap:8px; border:none; background:var(--surface); box-shadow:var(--shadow-card,0 8px 24px rgba(11,26,51,.16)); border-radius:var(--r-pill); padding:6px 16px 6px 6px; cursor:pointer; z-index:30; }
+  .float-web span{ font:700 13.5px var(--font-display); color:var(--ocean-700); }
+  body.tf-simple .float-web span{ font-size:15px; }
+
   /* ===== CARNET DE VOYAGE (imprimable) ===== */
   .cv-sheet{ padding:0 16px 30px; max-width:720px; margin:0 auto; }
   .cv-cover{ text-align:center; padding:18px 0 8px; }
@@ -832,6 +850,7 @@
       root.setAttribute('data-theme', saved==='light'?'light':'dark'); // futuristic dark by default (unique identity); remembers choice
       // Theme toggle now lives inside the app header (ThemeToggle component) — no floating pill.
       // "Revoir l'intro" lives in Profile and calls this:
+      try{ if(localStorage.getItem('tf_simple')==='1') document.body.classList.add('tf-simple'); }catch(e){}
       window.tfReplayIntro=async function(){
         try{ localStorage.removeItem('tf_intro_seen'); }catch(e){}
         try{ localStorage.removeItem('tf_app_state_v1'); }catch(e){}

@@ -177,6 +177,9 @@ function ApercuTab({ d, go, book }) {
       </div>
       <WeatherWidget dest={d} />
       <PackageCard dest={d} book={book} />
+      <button className="btn btn--cta btn--block" style={{ marginTop:12 }} onClick={()=>{ try{ window.__TF_RT_PREFILL={ region:(d.country||d.name||''), must:(d.name||d.city||''), travelers:(d.pax||2) }; }catch(e){} go('roadtrip'); }}>
+        <Icon n="route" size={18} /> Composer ce voyage avec Webbina
+      </button>
       {typeof FullItinerary!=='undefined' && <FullItinerary departHub={(d.originIata||d.origin||'votre aéroport de départ')} arriveHub={(d.name||d.city||'')} pax={d.pax} />}
       {/* formalités quick link */}
       <button className="card card--hover" onClick={()=>go('formalites')} style={{ width:'100%', textAlign:'left', padding:14, display:'flex', alignItems:'center', gap:12, border:'1px solid var(--border)' }}>

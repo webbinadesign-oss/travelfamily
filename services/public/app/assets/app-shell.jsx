@@ -14,8 +14,8 @@ function StatusBar({ dark }) {
 }
 
 const TABS = [
-  { id:'home', ic:'compass', label:'Explorer' },
-  { id:'favoris', ic:'heart', label:'Favoris' },
+  { id:'home', ic:'compass', label:'Accueil' },
+  { id:'decouvrir', ic:'globe', label:'Découvrir' },
   { id:'__fab', ic:'', label:'' },
   { id:'dashboard', ic:'briefcase', label:'Voyages' },
   { id:'profil', ic:'user', label:'Profil' },
@@ -106,6 +106,7 @@ function App() {
   if(screen==='welcome') view=<WelcomeScreen go={go} />;
   else if(screen==='auth') view=<AuthScreen go={go} />;
   else if(screen==='home') view=<HomeScreen go={go} openChat={openChat} openParcours={openParcours} openReserver={openReserver} favs={favs} toggleFav={toggleFav} />;
+  else if(screen==='decouvrir') view=<DecouvrirScreen go={go} openChat={openChat} openReserver={openReserver} favs={favs} toggleFav={toggleFav} />;
   else if(screen==='parcours') view=<ParcoursIntakeScreen parcours={parcours} go={go} openChat={openChat} />;
   else if(screen==='reserver') view=<ReserverScreen mode={reserverMode} go={go} book={book} />;
   else if(screen==='chat') view=<ConversationScreen ctx={chatCtx} seed={chatSeed} go={go} book={book} />;

@@ -13,9 +13,9 @@ function hm(min){ const h=Math.floor(min/60), m=Math.round(min%60); return h?`${
 function RoadtripForm({ onPlan, busy }){
   const PRE = (typeof window!=='undefined' && window.__TF_RT_PREFILL) || {};
   const SAVED = (()=>{ try{ return JSON.parse(localStorage.getItem('tf_rt_form')||'null')||{}; }catch(e){ return {}; } })();
-  const [origin,setOrigin]=React.useState(SAVED.origin||PRE.origin||'');
-  const [region,setRegion]=React.useState(SAVED.region||'');
-  const [must,setMust]=React.useState(SAVED.must||'');
+  const [origin,setOrigin]=React.useState(PRE.origin||SAVED.origin||'');
+  const [region,setRegion]=React.useState(PRE.region||SAVED.region||'');
+  const [must,setMust]=React.useState(PRE.must||SAVED.must||'');
   const [start,setStart]=React.useState(SAVED.start||'');
   const [end,setEnd]=React.useState(SAVED.end||'');
   const [pax,setPax]=React.useState(SAVED.pax||PRE.travelers||2);

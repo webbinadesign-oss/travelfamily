@@ -96,8 +96,10 @@ const GLOBE_PALETTE = [
   { a:'#fbbf24', b:'#fb7185', glow:'rgba(251,146,60,.95)' },   // 04 amber/coral
 ];
 
-function GlobeParcours({ openParcours }) {
-  const P = TF.PARCOURS;
+function GlobeParcours({ openParcours, items, onPick, lines, kicker, heading }) {
+  const P = items || TF.PARCOURS;
+  const LINES = lines || GLOBE_LINES;
+  const pick = onPick || openParcours;
   const N = P.length;
   const R = 150; // card distance from centre
   const [turn, setTurn] = React.useState(0);     // monotonic; rotation only on tap
@@ -120,7 +122,7 @@ function GlobeParcours({ openParcours }) {
     const p = P[idx];
     try{ Voice.cancel(); }catch(e){}
     try{
-      Voice.speak(GLOBE_LINES[p.id] || p.t, {
+      Voice.speak(LINES[p.id] || p.line || p.t, {
         emotion:'happy',
         onstart:()=>setSpeaking(true),
         onend:()=>setSpeaking(false),
@@ -138,8 +140,8 @@ function GlobeParcours({ openParcours }) {
       <div className="gh-stars" aria-hidden="true"></div>
       <div className="gh-head">
         <div className="gh-txt">
-          <div className="gh-kicker">Par où commencer&nbsp;?</div>
-          <div className="gh-h">Tournez le globe avec les flèches, puis touchez la carte.</div>
+          <div className="gh-kicker">{kicker || 'Par où commencer ?'}</div>
+          <div className="gh-h">{heading || 'Tournez le globe avec les flèches, puis touchez la carte.'}</div>
         </div>
         <span className="gh-web"><LivingWebbina size={46} state={speaking?'speaking':'idle'} expr={speaking?'enthusiastic':'happy'} /></span>
       </div>
@@ -166,7 +168,7 @@ function GlobeParcours({ openParcours }) {
               const isActive = i===active;
               return (
                 <button key={p.id} className={`globe-face ${isActive?'is-active':''}`}
-                  onClick={()=>{ if(isActive) openParcours(p.id); }}
+                  onClick={()=>{ if(isActive) pick(p.id); }}
                   aria-hidden={!isActive}
                   style={{
                     transform:`rotateY(${i*(360/N)}deg) translateZ(${R}px)`,
@@ -183,7 +185,7 @@ function GlobeParcours({ openParcours }) {
                   </div>
                   <div className="gf-title">{p.t}</div>
                   <div className="gf-desc">{p.d}</div>
-                  <span className="gf-cta" style={{ color:c.a }}>Choisir ce parcours <Icon n="arrowRight" size={15} /></span>
+                  <span className="gf-cta" style={{ color:c.a }}>{p.cta || 'Choisir ce parcours'} <Icon n="arrowRight" size={15} /></span>
                 </button>
               );
             })}

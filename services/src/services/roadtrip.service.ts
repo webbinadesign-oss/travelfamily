@@ -40,7 +40,7 @@ export interface RoadTripPlan {
   endDate?: string;
   travelers: number;
   mode: 'fly-drive' | 'road';
-  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string; compared?: Array<{ iata: string; price: number }> };
+  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string; compared?: Array<{ iata: string; price: number | null }> };
   access?: { mode: string; label: string; durationMin: number; cost: number; currency: string; bookUrl?: string; note?: string; real: boolean };
   car?: { days: number; perDay: number; total: number; category: string; bookUrl: string };
   stops: RoadStop[];
@@ -256,10 +256,11 @@ async function enrichVariant(
     // Best price per departure airport → the "compared" list the user sees.
     const perOrigin = new Map<string, number>();
     for (const f of fares) if (f.price != null) { const cur = perOrigin.get(f.o); if (cur == null || f.price < cur) perOrigin.set(f.o, f.price); }
+    // Show ALL nearby airports checked (even without a live fare) so the user
+    // sees Webbina really compared Marseille, Barcelone, etc.
     const compared = origins
-      .filter((o) => perOrigin.has(o))
-      .map((o) => ({ iata: o, price: Math.round(perOrigin.get(o)! * pax) }))
-      .sort((a, b) => a.price - b.price);
+      .map((o) => ({ iata: o, price: perOrigin.has(o) ? Math.round(perOrigin.get(o)! * pax) : null }))
+      .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     let best: { o: string; a: string; price: number } | null = null;
     for (const f of fares) if (f.price != null && (!best || f.price < best.price)) best = { o: f.o, a: f.a, price: f.price };
     if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a, lowcost: true, note: 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, bagage en soute en option — à ajouter au moment de la réservation. Conditions de modification/annulation selon la compagnie.', ...(compared.length > 1 ? { compared } : {}) };

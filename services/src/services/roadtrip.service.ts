@@ -1,0 +1,256 @@
+/**
+ * Road-trip / multi-stop itinerary planner — Webbina's flagship "carnet de route".
+ *
+ * Produces a complete multi-city trip that ChatGPT can't: a Gemini-generated
+ * day-by-day plan ENRICHED with real data:
+ *   • Cheapest flights compared across candidate airports (Travelpayouts).
+ *   • Real driving legs between cities (Google Routes: time + distance).
+ *   • Car rental estimate (per-day) + Discover Cars link.
+ *   • Per-city hotel price COMPARISON (3 tiers) — honest estimates until
+ *     RateHawk/Duffel Stays are live.
+ *   • Fuel + tolls estimate.
+ *   • Full budget breakdown.
+ *
+ * Everything is clearly flagged real vs estimate. Never invents a bookable price.
+ */
+import { geminiService } from './gemini.service.js';
+import { travelpayoutsService } from './travelpayouts.service.js';
+import { itineraryService } from './itinerary.service.js';
+import { logger } from '../lib/logger.js';
+
+export interface RoadStop {
+  city: string;
+  airportIata?: string;      // if this city has an airport (arrival/return)
+  nights: number;
+  summary: string;           // one-line why this stop
+  days: Array<{ date?: string; title: string; items: string[] }>;
+  hotels: Array<{ tier: 'éco' | 'confort' | 'premium'; name: string; pricePerNight: number; note?: string }>;
+  driveFromPrev?: { from: string; to: string; durationMin: number; distanceKm: number; real: boolean };
+}
+export interface RoadTripPlan {
+  strategy?: string;
+  label?: string;
+  angle?: string;
+  hotelTier?: 'éco' | 'confort' | 'premium';
+  title: string;
+  origin: string;
+  region: string;
+  startDate?: string;
+  endDate?: string;
+  travelers: number;
+  mode: 'fly-drive' | 'road';
+  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string };
+  car?: { days: number; perDay: number; total: number; category: string; bookUrl: string };
+  stops: RoadStop[];
+  drivingTotalKm: number;
+  fuelEstimate?: { amount: number; currency: string };
+  tollsEstimate?: { amount: number; currency: string };
+  budget: { flights: number; car: number; hotels: number; fuel: number; tolls: number; activities: number; total: number; perPerson: number; currency: string };
+  notes: string[];
+  source: 'webbina';
+  generatedAt: string;
+}
+
+const num = (v: unknown, d = 0): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+
+/* Shared caches so generating 3 variants doesn't re-hit Google/TP for the same
+   city pair or airport. Reset per request batch. */
+type LegCache = Map<string, { durationMin: number; distanceKm: number } | null>;
+type FareCache = Map<string, number | null>;
+
+async function cachedLeg(cache: LegCache, from: string, to: string): Promise<{ durationMin: number; distanceKm: number } | null> {
+  const key = `${from}|${to}`.toLowerCase();
+  if (cache.has(key)) return cache.get(key)!;
+  let leg: { durationMin: number; distanceKm: number } | null = null;
+  try { leg = await itineraryService.driveLeg(from, to); } catch { leg = null; }
+  cache.set(key, leg);
+  return leg;
+}
+async function cachedFare(cache: FareCache, origin: string, dest: string, start?: string, end?: string): Promise<number | null> {
+  const key = `${origin}|${dest}|${start || ''}|${end || ''}`;
+  if (cache.has(key)) return cache.get(key)!;
+  let price: number | null = null;
+  if (travelpayoutsService.configured()) {
+    try {
+      const fares = await travelpayoutsService.cheapestForRoute({
+        origin, destination: dest,
+        ...(start ? { departureDate: start } : {}), ...(end ? { returnDate: end } : {}),
+        oneWay: !end, limit: 3,
+      });
+      if (fares.length) price = fares[0]!.price;
+    } catch { price = null; }
+  }
+  cache.set(key, price);
+  return price;
+}
+
+/** Ask Gemini for 3 DISTINCT complete itinerary variants to compare. */
+async function generateVariants(input: RoadTripInput): Promise<Array<{ strategy: string; label: string; angle: string; title: string; stops: RoadStop[]; notes: string[] }>> {
+  const must = (input.mustSee || []).join(', ');
+  const prompt = `Tu es une experte du voyage. Conçois TROIS itinéraires DISTINCTS et complets pour le MÊME voyage, afin que le client compare et choisisse.
+Contexte : départ de "${input.origin}", région/pays "${input.region}", du ${input.startDate || '?'} au ${input.endDate || '?'}, ${input.travelers} voyageur(s), mode "${input.mode === 'road' ? 'road trip en voiture depuis le domicile' : 'avion + location de voiture sur place'}".
+Villes indispensables (à inclure dans CHAQUE variante) : ${must || 'choisis les plus belles'}.
+
+Les 3 variantes doivent être VRAIMENT différentes :
+1) "eco" = Le plus économique : hôtels simples, étapes optimisées, moins de villes secondaires, budget serré.
+2) "balanced" = Le mieux équilibré : bon rapport confort/prix, rythme agréable, hôtels confort.
+3) "comfort" = Le plus confortable : hôtels haut de gamme, moins de route par jour, plus de temps sur place, quelques étapes premium en plus.
+
+Contraintes : étapes de route raisonnables (idéalement <4-5h/jour), nuits bien réparties. Si "avion + voiture", indique l'aéroport (airportIata) des villes qui en ont un.
+
+Réponds STRICTEMENT en JSON, sans texte autour :
+{"variants":[{"strategy":"eco","label":"Le plus économique","angle":"phrase qui résume l'esprit","title":"...","stops":[{"city":"Porto","airportIata":"OPO|null","nights":2,"summary":"phrase","days":[{"title":"...","items":["v1","v2","v3"]}],"hotels":[{"tier":"éco","name":"...","pricePerNight":65},{"tier":"confort","name":"...","pricePerNight":105},{"tier":"premium","name":"...","pricePerNight":175}]}],"notes":["conseil"]}, {...balanced...}, {...comfort...}]}
+Prix hôtels/nuit réalistes pour la région et la saison. Toujours 3 tiers d'hôtel par ville.`;
+
+  try {
+    const j = (await geminiService.generateJSON(prompt)) as any;
+    const arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
+    const out = arr.map((v: any) => ({
+      strategy: String(v.strategy || 'balanced'),
+      label: String(v.label || 'Itinéraire'),
+      angle: String(v.angle || ''),
+      title: String(v.title || `Voyage ${input.region}`),
+      notes: Array.isArray(v.notes) ? v.notes.map((n: any) => String(n)) : [],
+      stops: (Array.isArray(v.stops) ? v.stops : []).map((s: any) => ({
+        city: String(s.city || '').trim(),
+        airportIata: s.airportIata && String(s.airportIata).length === 3 ? String(s.airportIata).toUpperCase() : undefined,
+        nights: Math.max(0, num(s.nights, 1)),
+        summary: String(s.summary || ''),
+        days: Array.isArray(s.days) ? s.days.map((d: any) => ({ title: String(d.title || ''), items: (Array.isArray(d.items) ? d.items : []).map((x: any) => String(x)) })) : [],
+        hotels: Array.isArray(s.hotels) ? s.hotels.slice(0, 3).map((h: any) => ({
+          tier: (['éco', 'confort', 'premium'].includes(h.tier) ? h.tier : 'confort') as RoadStop['hotels'][0]['tier'],
+          name: String(h.name || 'Hôtel'), pricePerNight: num(h.pricePerNight, 90),
+        })) : [],
+      })).filter((s: RoadStop) => s.city),
+    })).filter((v: any) => v.stops.length);
+    return out.slice(0, 3);
+  } catch (e) {
+    logger.warn('roadtrip variants failed', { err: String(e) });
+    return [];
+  }
+}
+
+const HOTEL_FOR: Record<string, 'éco' | 'confort' | 'premium'> = { eco: 'éco', balanced: 'confort', comfort: 'premium' };
+const CAR_FOR: Record<string, { cat: string; perDay: number }> = {
+  eco: { cat: 'Économique', perDay: 42 }, balanced: { cat: 'Compacte', perDay: 55 }, comfort: { cat: 'SUV / Confort', perDay: 78 },
+};
+
+/** Enrich one variant skeleton with real driving legs, cheapest flight, budget. */
+async function enrichVariant(
+  v: { strategy: string; label: string; angle: string; title: string; stops: RoadStop[]; notes: string[] },
+  input: RoadTripInput, legCache: LegCache, fareCache: FareCache,
+): Promise<RoadTripPlan> {
+  const stops = v.stops;
+  const pax = Math.max(1, input.travelers);
+  const currency = 'EUR';
+  const totalNights = stops.reduce((s, st) => s + st.nights, 0);
+  const days = totalNights + 1;
+  const chosenTier = HOTEL_FOR[v.strategy] || 'confort';
+
+  // 1) Real driving legs between stops (cached across variants).
+  let drivingTotalKm = 0;
+  for (let i = 1; i < stops.length; i++) {
+    const from = stops[i - 1]!.city, to = stops[i]!.city;
+    const leg = await cachedLeg(legCache, `${from}, ${input.region}`, `${to}, ${input.region}`);
+    if (leg) {
+      stops[i]!.driveFromPrev = { from, to, durationMin: leg.durationMin, distanceKm: leg.distanceKm, real: true };
+      drivingTotalKm += leg.distanceKm;
+    }
+  }
+
+  // 2) Cheapest flight (fly-drive) across candidate airports (cached).
+  let flight: RoadTripPlan['flight'];
+  if (input.mode === 'fly-drive' && input.originIata) {
+    const candidates = stops.map((s) => s.airportIata).filter(Boolean) as string[];
+    let best: { arr: string; price: number } | null = null;
+    for (const arr of candidates) {
+      const p = await cachedFare(fareCache, input.originIata, arr, input.startDate, input.endDate);
+      if (p != null && (!best || p < best.price)) best = { arr, price: p };
+    }
+    if (best) flight = { origin: input.originIata, arrival: best.arr, price: best.price * pax, currency, real: true, airport: best.arr };
+    else if (candidates.length) flight = { origin: input.originIata, arrival: candidates[0]!, price: 0, currency, real: false, airport: candidates[0]! };
+  }
+
+  // 3) Car rental estimate by strategy.
+  let car: RoadTripPlan['car'];
+  if (input.mode === 'fly-drive') {
+    const c = CAR_FOR[v.strategy] || CAR_FOR.balanced;
+    car = { days, perDay: c.perDay, total: c.perDay * days, category: c.cat, bookUrl: 'https://www.discovercars.com/?a_aid=TravelFamily' };
+  }
+
+  // 4) Fuel + tolls (real distance; road mode adds home↔region).
+  let roadKm = drivingTotalKm;
+  if (input.mode === 'road' && stops.length) {
+    const inLeg = await cachedLeg(legCache, input.origin, `${stops[0]!.city}, ${input.region}`);
+    const outLeg = await cachedLeg(legCache, `${stops[stops.length - 1]!.city}, ${input.region}`, input.origin);
+    roadKm += (inLeg?.distanceKm || 0) + (outLeg?.distanceKm || 0);
+  }
+  const fuel = Math.round((roadKm / 100) * 7 * 1.75);
+  const tolls = Math.round(roadKm * 0.07);
+
+  // 5) Hotels by strategy tier.
+  const rooms = Math.max(1, Math.ceil(pax / 2));
+  const hotelsBudget = stops.reduce((sum, s) => {
+    const h = s.hotels.find((x) => x.tier === chosenTier) || s.hotels[0];
+    return sum + (h ? h.pricePerNight * s.nights : 0);
+  }, 0) * rooms;
+
+  const perDayAct = v.strategy === 'comfort' ? 30 : v.strategy === 'eco' ? 12 : 20;
+  const activities = stops.reduce((s, st) => s + st.days.length, 0) * perDayAct * pax;
+
+  const flights = flight?.price || 0;
+  const carTotal = car?.total || 0;
+  const total = flights + carTotal + hotelsBudget + fuel + tolls + activities;
+
+  return {
+    strategy: v.strategy, label: v.label, angle: v.angle,
+    title: v.title, origin: input.origin, region: input.region,
+    ...(input.startDate ? { startDate: input.startDate } : {}),
+    ...(input.endDate ? { endDate: input.endDate } : {}),
+    travelers: pax, mode: input.mode, hotelTier: chosenTier,
+    ...(flight ? { flight } : {}), ...(car ? { car } : {}),
+    stops, drivingTotalKm: Math.round(roadKm),
+    fuelEstimate: { amount: fuel, currency }, tollsEstimate: { amount: tolls, currency },
+    budget: {
+      flights: Math.round(flights), car: Math.round(carTotal), hotels: Math.round(hotelsBudget),
+      fuel, tolls, activities: Math.round(activities),
+      total: Math.round(total), perPerson: Math.round(total / pax), currency,
+    },
+    notes: v.notes, source: 'webbina', generatedAt: new Date().toISOString(),
+  };
+}
+
+export interface RoadTripInput {
+  origin: string;              // home city
+  region: string;              // country / region
+  mustSee?: string[];
+  startDate?: string;
+  endDate?: string;
+  travelers: number;
+  mode: 'fly-drive' | 'road';
+  originIata?: string;         // nearest airport to home (for fly-drive)
+}
+
+export const roadtripService = {
+  /** Generate SEVERAL complete itinerary options to compare BEFORE booking. */
+  async options(input: RoadTripInput): Promise<RoadTripPlan[]> {
+    const variants = await generateVariants(input);
+    if (!variants.length) return [];
+    const legCache: LegCache = new Map();
+    const fareCache: FareCache = new Map();
+    const plans: RoadTripPlan[] = [];
+    for (const v of variants) {
+      try { plans.push(await enrichVariant(v, input, legCache, fareCache)); }
+      catch (e) { logger.warn('roadtrip enrich failed', { err: String(e) }); }
+    }
+    // Cheapest first.
+    return plans.sort((a, b) => a.budget.total - b.budget.total);
+  },
+
+  /** Single plan (kept for compatibility) = the balanced variant. */
+  async plan(input: RoadTripInput): Promise<RoadTripPlan | null> {
+    const all = await this.options(input);
+    return all.find((p) => p.strategy === 'balanced') || all[0] || null;
+  },
+};
+

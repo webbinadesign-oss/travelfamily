@@ -414,6 +414,29 @@
       } catch (e) { return null; }
     },
 
+    /** Carnet de route multi-villes : Webbina génère un road trip complet
+        (jour par jour, comparaison hôtels, vol le moins cher, voiture, budget). */
+    planRoadtrip: async function (input) {
+      if (!api() || !input) return null;
+      try {
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+        var r = await fetch(api() + '/api/roadtrip/plan', { method: 'POST', headers: headers, body: JSON.stringify(input) });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
+    /** Plusieurs itinéraires complets à COMPARER avant réservation. */
+    planRoadtripOptions: async function (input) {
+      if (!api() || !input) return null;
+      try {
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+        var r = await fetch(api() + '/api/roadtrip/options', { method: 'POST', headers: headers, body: JSON.stringify(input) });
+        if (!r.ok) return null;
+        return (await r.json()).options || [];
+      } catch (e) { return null; }
+    },
+
     /** Annulation d'une commande Duffel (devis du remboursement puis confirmation). */
     cancelQuote: async function (orderId) {
       if (!api()) throw new Error('no_backend');

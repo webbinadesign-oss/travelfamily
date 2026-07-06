@@ -234,6 +234,12 @@ async function groundOptions(from: string, to: string, profile: { family?: boole
 }
 
 export const itineraryService = {
+  /** Simple city→city driving leg (duration + distance), for the road-trip planner. */
+  async driveLeg(from: string, to: string): Promise<{ durationMin: number; distanceKm: number } | null> {
+    const r = await computeRoute(from, to, 'DRIVE');
+    return r ? { durationMin: r.durationMin, distanceKm: r.distanceKm } : null;
+  },
+
   /** Door → hub (reach the first transport), several options, profile-aware. */
   async toHub(input: { origin: string; hub: string; profile?: { family?: boolean; budget?: boolean; pax?: number } }): Promise<{ origin: string; hub: string; options: ItinOption[] }> {
     const options = await groundOptions(input.origin, input.hub, input.profile || {}, { side: 'depart' });

@@ -5,19 +5,19 @@ function ArchitectureView() {
   const layers = [
     { k: 'avatar', title: 'Zone Avatar', icon: 'camera', color: 'turq',
       desc: 'Rendu interchangeable, piloté par l\'émotion + l\'état.',
-      items: ['Vidéo / Image (actif)', 'Live2D', 'Avatar 3D (three.js / VRM)', 'Unreal Engine (Pixel Streaming)', 'NVIDIA ACE (Audio2Face)'] },
+      items: ['Vidéo vivante (actif)', 'Live2D (à venir)', 'Avatar 3D · VRM sur mesure (à venir)', 'Unreal · Pixel Streaming (à venir)', 'NVIDIA ACE · Audio2Face (à venir)'] },
     { k: 'core', title: 'Webbina Core', icon: 'sparkles', color: 'coral',
       desc: 'Le cœur : émotions, états, hook useWebbina, registre des rendus.',
       items: ['Émotions (6)', 'États (idle/listening/thinking/speaking)', 'Streaming des réponses', 'Événements normalisés'] },
-    { k: 'transport', title: 'Transports', icon: 'mic', color: 'ocean',
-      desc: 'Comment Webbina parle — texte + voix, adaptateurs interchangeables.',
-      items: ['Démo scripté', 'Démo Mémoire', 'ElevenLabs SDK (agent vocal)', 'OpenAI (cerveau, /api/chat)'] },
+    { k: 'transport', title: 'Cerveau & voix', icon: 'mic', color: 'ocean',
+      desc: 'Comment Webbina réfléchit et parle — cascade de secours automatique.',
+      items: ['Claude → Gemini → OpenAI (cerveau)', 'Voix Google + ElevenLabs', 'Micro : Google STT', 'Démo scripté / Mémoire'] },
     { k: 'memory', title: 'Webbina Memory', icon: 'briefcase', color: 'turq',
       desc: 'Elle se souvient : profil, voyageurs, passeports, préférences, historique. Contexte récupéré à chaque nouvelle conversation.',
-      items: ['7 tables Supabase + RLS', 'Résumé auto des préférences', 'Greeting contextuel', '/api/memory/:id/context'] },
+      items: ['7 tables Supabase + RLS', 'Résumé auto des préférences', 'Greeting contextuel', 'Fidélité + cagnotte auto'] },
     { k: 'services', title: 'Services backend', icon: 'globe', color: 'gold',
-      desc: 'Dossier /services — la clé reste côté serveur.',
-      items: ['OpenAI', 'ElevenLabs', 'Amadeus', 'Google Maps', 'OpenWeather', 'Supabase'] },
+      desc: 'Dossier /services — les clés restent côté serveur.',
+      items: ['Vols Duffel + low-cost', 'Itinéraire porte-à-porte (Google Routes)', 'Activités, transferts, voiture', 'Météo, formalités, Stripe, Espace Gérante'] },
   ];
   return (
     <div className="arch">

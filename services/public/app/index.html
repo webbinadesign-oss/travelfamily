@@ -24,12 +24,44 @@
     background-size:46px 46px; mask:radial-gradient(circle at 50% 40%, #000 0%, transparent 78%); animation:gridDrift 24s linear infinite; }
   @keyframes gridDrift{ to{ background-position:46px 92px; } }
   .device-frame{ z-index:1; }
+
+  /* Desktop hybrid: living Webbina beside the phone (option 3). */
+  .webbina-hero{ display:none; }
+  .webbina-tag{ display:none; }
+  @media (min-width:1180px){
+    .webbina-hero{ display:block; position:fixed; left:max(20px, calc(50% - 760px)); bottom:-14px; width:390px; z-index:1; pointer-events:none; }
+    .webbina-hero .wb-img{ width:100%; display:block; transform-origin:50% 96%;
+      filter:drop-shadow(0 34px 42px rgba(15,23,42,.28)); animation:webbinaIdle 6.5s ease-in-out infinite; }
+    .webbina-hero .wb-shadow{ position:absolute; left:14%; right:20%; bottom:6px; height:26px; border-radius:50%;
+      background:radial-gradient(closest-side, rgba(15,23,42,.30), transparent 78%); filter:blur(3px);
+      animation:webbinaShadow 6.5s ease-in-out infinite; }
+    .webbina-hero .wb-spark{ position:absolute; border-radius:50%; background:radial-gradient(circle, #7DD3FC, transparent 70%);
+      opacity:.7; animation:webbinaSpark 7s ease-in-out infinite; }
+    .webbina-hero .wb-spark.s1{ width:12px; height:12px; top:16%; right:6%; animation-delay:0s; }
+    .webbina-hero .wb-spark.s2{ width:8px; height:8px; top:34%; right:-2%; animation-delay:1.4s; }
+    .webbina-hero .wb-spark.s3{ width:10px; height:10px; top:8%; left:8%; animation-delay:2.6s; background:radial-gradient(circle,#FBBF77,transparent 70%); }
+    .webbina-tag{ display:block; position:fixed; right:max(20px, calc(50% - 760px)); top:50%; transform:translateY(-50%);
+      width:320px; z-index:1; pointer-events:none; }
+    .webbina-tag h2{ font-family:var(--font-display); font-weight:800; font-size:34px; line-height:1.12; color:var(--text); letter-spacing:-.01em; }
+    .webbina-tag p{ margin-top:12px; font-size:15.5px; line-height:1.6; color:var(--text-2); }
+    .webbina-tag .wb-badge{ display:inline-flex; align-items:center; gap:7px; margin-bottom:14px; font:700 12px var(--font-display);
+      color:var(--ocean-700); background:var(--ocean-50); padding:6px 13px; border-radius:99px; }
+  }
+  @media (min-width:1180px) and (max-height:820px){ .webbina-hero{ width:320px; } }
+  @keyframes webbinaIdle{ 0%,100%{ transform:translateY(0) rotate(0deg) scaleY(1); } 50%{ transform:translateY(-12px) rotate(-.7deg) scaleY(1.01); } }
+  @keyframes webbinaShadow{ 0%,100%{ transform:scaleX(1); opacity:.30; } 50%{ transform:scaleX(.88); opacity:.20; } }
+  @keyframes webbinaSpark{ 0%,100%{ transform:translateY(0) scale(1); opacity:.2; } 50%{ transform:translateY(-14px) scale(1.25); opacity:.85; } }
+  @media (prefers-reduced-motion: reduce){ .webbina-hero .wb-img, .webbina-hero .wb-shadow, .webbina-hero .wb-spark{ animation:none; } }
   [data-theme="dark"] .device-frame{ background:#070B14; box-shadow:0 50px 110px -36px rgba(6,182,212,.28), 0 0 0 1px rgba(120,180,255,.14) inset, 0 0 0 2px rgba(10,16,30,.9); }
 
   .device-frame{ position:relative; width:402px; max-width:100%; background:#0B1220; border-radius:54px; padding:13px;
     box-shadow:0 50px 90px -40px rgba(15,23,42,.6), 0 0 0 2px rgba(255,255,255,.04) inset; }
   .notch{ position:absolute; top:13px; left:50%; transform:translateX(-50%); width:128px; height:30px; background:#0B1220; border-radius:0 0 18px 18px; z-index:60; }
   .phone-screen{ position:relative; background:var(--bg); border-radius:42px; overflow:hidden; height:852px; display:flex; flex-direction:column; }
+  /* Desktop/tablet: fit the whole device in the viewport (content scrolls inside). */
+  @media (min-width:441px){
+    .phone-screen{ height:min(852px, calc(100vh - 54px)); }
+  }
   .phone-screen.is-welcome{ background:#070C16; }
 
   .statusbar{ display:flex; align-items:center; justify-content:space-between; padding:12px 28px 6px; font-family:var(--font-display); font-size:14px; color:var(--text); flex:none; z-index:55; }
@@ -468,6 +500,47 @@
   .cond-card{ background:var(--gold-50,#FBF1DA); border:1px solid color-mix(in srgb, var(--gold-700,#B8841C) 30%, transparent); }
   .cond-card svg{ color:var(--gold-700,#B8841C); flex:none; margin-top:1px; }
 
+  /* ===== ROAD-TRIP / CARNET DE ROUTE ===== */
+  .seg2{ display:flex; gap:6px; background:var(--surface-sunk); padding:4px; border-radius:var(--r-md); }
+  .seg2 button{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px; border:none; background:none; border-radius:var(--r-sm); font:600 13px var(--font-display); color:var(--text-2); cursor:pointer; }
+  .seg2 button.on{ background:var(--surface); color:var(--ocean-700); box-shadow:var(--shadow-card); }
+  .rt-lbl{ display:block; font:700 12px var(--font-display); color:var(--text-2); margin:12px 0 5px; }
+  .rt-opt{ font-weight:500; color:var(--text-muted); }
+  .rt-in{ width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:var(--r-md); font:500 14px var(--font-body); background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .rt-step{ display:inline-flex; align-items:center; gap:16px; }
+  .rt-step button{ width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border-strong,var(--border)); background:var(--surface); color:var(--text); font-size:18px; cursor:pointer; }
+  .rt-step b{ font-family:var(--font-display); font-size:16px; min-width:20px; text-align:center; }
+  .rt-spin{ display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:rtspin .7s linear infinite; vertical-align:-2px; margin-right:4px; }
+  @keyframes rtspin{ to{ transform:rotate(360deg); } }
+  .rt-hero{ background:var(--grad-premium); border:none; }
+  .rt-total{ display:flex; justify-content:space-between; align-items:baseline; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.25); color:#fff; }
+  .rt-total span{ font-size:13px; opacity:.9; } .rt-total b{ font-family:var(--font-display); font-size:26px; }
+  .rt-line{ display:flex; align-items:center; gap:10px; padding:8px 0; }
+  .rt-line-ic{ width:32px; height:32px; border-radius:9px; flex:none; display:grid; place-items:center; background:var(--ocean-50); color:var(--ocean-700); }
+  .rt-drive{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:var(--text-2); background:var(--surface-sunk); border-radius:var(--r-pill); padding:6px 11px; margin-bottom:10px; }
+  .rt-drive svg{ color:var(--ocean-700); flex:none; }
+  .rt-real{ font:800 9px var(--font-display); text-transform:uppercase; color:var(--success,#15A34A); background:var(--success-bg,#E7F6EE); border-radius:99px; padding:1px 6px; }
+  .rt-badge{ width:24px; height:24px; border-radius:50%; flex:none; display:grid; place-items:center; background:var(--ocean-700); color:#fff; font:800 12px var(--font-display); }
+  .rt-day{ margin-top:10px; }
+  .rt-day-list{ margin:4px 0 0; padding-left:18px; font-size:12.5px; color:var(--text-2); line-height:1.5; }
+  .rt-day-list li{ margin-bottom:2px; }
+  .rt-hotels{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .rt-hotel{ border:1px solid var(--border); border-radius:var(--r-md); padding:10px 9px; background:var(--surface); }
+  .rt-hotel-top{ display:flex; align-items:center; gap:4px; font:800 10px var(--font-display); text-transform:uppercase; letter-spacing:.03em; }
+  .rt-hotel-price{ margin:5px 0 3px; } .rt-hotel-price b{ font-family:var(--font-display); font-size:16px; } .rt-hotel-price span{ font-size:10px; color:var(--text-muted); }
+  .rt-brow{ display:flex; justify-content:space-between; padding:7px 0; font-size:13.5px; border-bottom:1px dashed var(--border); }
+  .rt-brow b{ font-family:var(--font-display); }
+  .rt-btotal{ border-bottom:none; border-top:2px solid var(--text); margin-top:4px; padding-top:9px; font-size:15px; }
+  .rt-entry{ display:flex; align-items:center; gap:12px; width:100%; cursor:pointer; }
+  .rt-entry-ic{ width:44px; height:44px; border-radius:13px; flex:none; display:grid; place-items:center; background:var(--grad-premium); color:#fff; }
+  .opt-card{ position:relative; border-width:2px; }
+  .opt-flag{ position:absolute; top:-9px; right:14px; font:800 10px var(--font-display); text-transform:uppercase; letter-spacing:.04em; color:#fff; background:var(--success,#15A34A); border-radius:99px; padding:3px 10px; }
+  .opt-ic{ width:36px; height:36px; border-radius:10px; flex:none; display:grid; place-items:center; background:var(--surface-sunk); }
+  .opt-route{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:10px; font:600 12.5px var(--font-display); color:var(--text); }
+  .opt-mini{ display:flex; flex-wrap:wrap; gap:10px; margin-top:9px; }
+  .opt-mini span{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text-2); }
+  .opt-mini svg{ color:var(--ocean-700); flex:none; }
+
 
   /* ===== SPONSORED (free tier) ===== */
   .spons-row{ padding:6px 18px 2px; }
@@ -645,6 +718,16 @@
 <text x="100" y="150" font-family="Poppins,sans-serif" font-size="26" font-weight="700" fill="#FFFFFF" text-anchor="middle">Webbina</text>
 </svg>
 </template>
+  <aside class="webbina-hero" aria-hidden="true">
+    <span class="wb-spark s1"></span><span class="wb-spark s2"></span><span class="wb-spark s3"></span>
+    <img class="wb-img" src="assets/webbina-hero.png" alt="" />
+    <span class="wb-shadow"></span>
+  </aside>
+  <aside class="webbina-tag" aria-hidden="true">
+    <span class="wb-badge">🦁 Votre conseillère de voyage</span>
+    <h2>Bonjour, moi c'est Webbina.</h2>
+    <p>Dites-moi où vous rêvez d'aller — je compose votre voyage de A à Z, du premier trajet jusqu'à l'hôtel.</p>
+  </aside>
   <div class="device-frame">
     <div class="notch"></div>
     <div id="app"></div>
@@ -670,6 +753,7 @@
   <script type="text/babel" src="assets/app-results.jsx"></script>
   <script type="text/babel" src="assets/app-pax.jsx"></script>
   <script type="text/babel" src="assets/app-itinerary.jsx"></script>
+  <script type="text/babel" src="assets/app-roadtrip.jsx"></script>
   <script type="text/babel" src="assets/app-booking.jsx"></script>
   <script type="text/babel" src="assets/app-explorer.jsx"></script>
   <script type="text/babel" src="assets/app-formalites.jsx"></script>

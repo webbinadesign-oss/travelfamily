@@ -505,6 +505,17 @@ function HomeScreen({ go, openChat, openParcours, openReserver, favs, toggleFav 
 
       <div className="home-sep"></div>
 
+      <button className="card card--pad rt-entry" onClick={()=>go('roadtrip')}>
+        <div className="rt-entry-ic"><Icon n="route" size={22} /></div>
+        <div style={{ flex:1, textAlign:'left' }}>
+          <b style={{ fontFamily:'var(--font-display)', fontSize:16 }}>Carnet de route sur mesure</b>
+          <div className="micro" style={{ marginTop:2 }}>Un séjour multi-villes clé en main : itinéraire, hôtels comparés, budget complet.</div>
+        </div>
+        <Icon n="chevronRight" size={20} style={{ color:'var(--text-muted)', flex:'none' }} />
+      </button>
+
+      <div className="home-sep"></div>
+
       <BonPlanDuJour go={go} openChat={openChat} />
 
       <div className="home-sep"></div>

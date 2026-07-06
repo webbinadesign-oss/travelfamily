@@ -98,7 +98,7 @@ function RoadbookView({ plan, onReset, book }){
           <h4 style={{ fontSize:14, marginBottom:8 }}>Transport principal</h4>
           {plan.flight && (
             <div className="rt-line"><div className="rt-line-ic"><Icon n="plane" size={16} /></div>
-              <div style={{ flex:1 }}><b>Vol {plan.flight.origin} → {plan.flight.arrival}{plan.flight.lowcost?' · low-cost':''}</b><div className="micro">{plan.flight.real?'Meilleur tarif trouvé (A/R, tous voyageurs)':'Aéroport conseillé'}</div>{plan.flight.compared&&plan.flight.compared.length>1&&<div className="micro" style={{ marginTop:3 }}>Comparé : {plan.flight.compared.map(c=>c.iata+' '+(c.price!=null?fmt(c.price)+cur:'—')).join(' · ')}</div>}{plan.flight.note&&<div className="micro" style={{ marginTop:3, color:'var(--text-muted)', lineHeight:1.45 }}>{plan.flight.note}</div>}</div>
+              <div style={{ flex:1 }}><b>Vol {plan.flight.origin} → {plan.flight.arrival}{plan.flight.returnAirport?' · retour depuis '+plan.flight.returnAirport:''}{plan.flight.lowcost?' · low-cost':''}</b><div className="micro">{plan.flight.real?'Meilleur tarif trouvé (A/R, tous voyageurs)':'Aéroport conseillé'}</div>{plan.flight.compared&&plan.flight.compared.length>1&&<div className="micro" style={{ marginTop:3 }}>Comparé : {plan.flight.compared.map(c=>c.iata+' '+(c.price!=null?fmt(c.price)+cur:'—')).join(' · ')}</div>}{plan.flight.note&&<div className="micro" style={{ marginTop:3, color:'var(--text-muted)', lineHeight:1.45 }}>{plan.flight.note}</div>}</div>
               <b>{plan.flight.real?fmt(plan.flight.price)+' '+cur:'—'}</b>
             </div>
           )}
@@ -249,8 +249,18 @@ function OptionsCompare({ options, onPick, onReset }){
           </div>
           {o.angle && <p className="micro" style={{ margin:'8px 0 0', lineHeight:1.5 }}>{o.angle}</p>}
           <div className="opt-route">{o.stops.map((s,k)=>(<React.Fragment key={k}>{k>0 && <Icon n="chevronRight" size={12} style={{ color:'var(--text-muted)' }} />}<span>{s.city}</span></React.Fragment>))}</div>
-          {o.flight && <div className="opt-flight"><Icon n="plane" size={13} /> <b>{o.flight.origin} → {o.flight.arrival}</b>{o.flight.real?<span> · {fmt(o.flight.price)} {cur} <span className="micro">(A/R, {o.travelers} pers.)</span>{o.flight.lowcost&&<span className="opt-lc">low-cost</span>}</span>:<span className="micro"> · aéroport conseillé</span>}</div>}
-          {o.flight && o.flight.compared && o.flight.compared.length>1 && <div className="opt-compared">Comparé : {o.flight.compared.map(c=>c.iata+' '+(c.price!=null?fmt(c.price)+cur:'—')).join(' · ')} → <b>{o.flight.airport} retenu</b></div>}
+          {o.flight && <div className="opt-flight"><Icon n="plane" size={13} /> <b>{o.flight.origin} → {o.flight.arrival}{o.flight.returnAirport?' · retour '+o.flight.returnAirport:''}</b>{o.flight.real?<span> · {fmt(o.flight.price)} {cur} <span className="micro">(A/R, {o.travelers} pers.)</span>{o.flight.returnAirport&&<span className="opt-lc" style={{ background:'var(--gold-50,#FBF1DA)', color:'var(--gold-700,#B8841C)' }}>open-jaw</span>}{o.flight.lowcost&&<span className="opt-lc">low-cost</span>}</span>:<span className="micro"> · aéroport conseillé</span>}</div>}
+          {o.flight && o.flight.compared && o.flight.compared.length>1 && (()=>{ const withP=o.flight.compared.filter(c=>c.price!=null); return (
+            <div className="opt-cmp">
+              <div className="opt-cmp-h"><Icon n="sparkles" size={12} /> Webbina a comparé {o.flight.compared.length} aéroports de départ</div>
+              <div className="opt-cmp-row">
+                {o.flight.compared.map(c=>(
+                  <span key={c.iata} className={'opt-cmp-chip'+(c.iata===o.flight.airport?' win':'')}>{c.iata}{c.price!=null?' '+fmt(c.price)+cur:''}</span>
+                ))}
+              </div>
+              <div className="opt-cmp-note">{withP.length? <>✓ <b>{o.flight.airport}</b> retenu — le moins cher</> : 'Tarifs indicatifs indisponibles pour ces dates — aéroport le plus proche retenu'}</div>
+            </div>
+          ); })()}
           {o.access && <div className="opt-flight"><Icon n={o.access.mode==='DRIVE'?'car':'bus'} size={13} /> <b>Accès aéroport</b> <span className="micro">· {o.access.label}{o.access.cost?` · ~${fmt(o.access.cost)} ${cur}`:''}</span></div>}
           <div className="opt-mini">
             {o.car && <span><Icon n="car" size={12} /> {o.car.category}</span>}

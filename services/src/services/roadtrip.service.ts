@@ -40,7 +40,7 @@ export interface RoadTripPlan {
   endDate?: string;
   travelers: number;
   mode: 'fly-drive' | 'road';
-  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string; compared?: Array<{ iata: string; price: number | null }> };
+  flight?: { origin: string; arrival: string; return?: string; returnAirport?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string; compared?: Array<{ iata: string; price: number | null }> };
   access?: { mode: string; label: string; durationMin: number; cost: number; currency: string; bookUrl?: string; note?: string; real: boolean };
   car?: { days: number; perDay: number; total: number; category: string; bookUrl: string };
   stops: RoadStop[];
@@ -249,29 +249,52 @@ async function enrichVariant(
     if (leg) { stops[i]!.driveFromPrev = { from, to, durationMin: leg.durationMin, distanceKm: leg.distanceKm, real: true }; drivingTotalKm += leg.distanceKm; }
   }
 
-  // 2) Cheapest flight (fly-drive) — compare arrival airports AND, if origin is
-  //    "AUTO", several candidate departure airports to find the cheapest overall.
+  // 2) Cheapest flight (fly-drive) with OPEN-JAW support: arrive at one airport,
+  //    fly home from another (whichever combo is cheapest + least backtracking).
   let flight: RoadTripPlan['flight'];
   if (input.mode === 'fly-drive' && input.originIata) {
-    const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 2);
-    // Always compare nearby airports (Marseille, Barcelone…), plus the selected one.
+    const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 3);
     const nearby = input.originAirports || ['MPL', 'MRS', 'TLS'];
     const origins = input.originIata === 'AUTO' ? nearby : Array.from(new Set([input.originIata, ...nearby]));
-    const pairs: Array<{ o: string; a: string }> = [];
-    for (const o of origins) for (const a of arrivals) pairs.push({ o, a });
-    const fares = await Promise.all(pairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, input.endDate).then((price) => ({ ...p, price }))));
-    // Best price per departure airport → the "compared" list the user sees.
+    // One-way outbound fares: home airport → each arrival airport.
+    const outPairs: Array<{ o: string; a: string }> = [];
+    for (const o of origins) for (const a of arrivals) outPairs.push({ o, a });
+    const outFares = await Promise.all(outPairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, undefined).then((price) => ({ ...p, price }))));
+    // One-way return fares: each arrival airport → home airport (for open-jaw).
+    const retPairs: Array<{ o: string; a: string }> = [];
+    for (const a of arrivals) for (const o of origins) retPairs.push({ o: a, a: o });
+    const retFares = await Promise.all(retPairs.map((p) => cachedFare(fareCache, p.o, p.a, input.endDate, undefined).then((price) => ({ dep: p.o, home: p.a, price: p.price }))));
+
+    // Best round-trip per home airport (for the "compared" strip).
     const perOrigin = new Map<string, number>();
-    for (const f of fares) if (f.price != null) { const cur = perOrigin.get(f.o); if (cur == null || f.price < cur) perOrigin.set(f.o, f.price); }
-    // Show ALL nearby airports checked (even without a live fare) so the user
-    // sees Webbina really compared Marseille, Barcelone, etc.
+    for (const f of outFares) if (f.price != null) { const cur = perOrigin.get(f.o); if (cur == null || f.price < cur) perOrigin.set(f.o, f.price); }
     const compared = origins
       .map((o) => ({ iata: o, price: perOrigin.has(o) ? Math.round(perOrigin.get(o)! * pax) : null }))
       .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
-    let best: { o: string; a: string; price: number } | null = null;
-    for (const f of fares) if (f.price != null && (!best || f.price < best.price)) best = { o: f.o, a: f.a, price: f.price };
-    if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a, lowcost: true, note: 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, bagage en soute en option — à ajouter au moment de la réservation. Conditions de modification/annulation selon la compagnie.', ...(compared.length > 1 ? { compared } : {}) };
-    else if (arrivals.length) flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]!, ...(compared.length > 1 ? { compared } : {}) };
+
+    // Find cheapest outbound + cheapest return-to-same-home, allowing DIFFERENT
+    // arrival vs departure airport (open-jaw).
+    let best: { home: string; arr: string; dep: string; price: number; openJaw: boolean } | null = null;
+    for (const out of outFares) {
+      if (out.price == null) continue;
+      const rets = retFares.filter((r) => r.home === out.o && r.price != null);
+      for (const r of rets) {
+        const total = out.price + r.price!;
+        const openJaw = r.dep !== out.a;
+        if (!best || total < best.price) best = { home: out.o, arr: out.a, dep: r.dep, price: total, openJaw };
+      }
+    }
+    if (best) {
+      flight = {
+        origin: best.home, arrival: best.arr, price: Math.round(best.price * pax), currency, real: true, airport: best.arr,
+        lowcost: true,
+        note: (best.openJaw ? `Vol « open-jaw » : arrivée à ${best.arr}, retour depuis ${best.dep} — moins de route et souvent moins cher. ` : '') + 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, soute en option. Conditions selon la compagnie.',
+        ...(best.openJaw ? { returnAirport: best.dep } : {}),
+        ...(compared.length > 1 ? { compared } : {}),
+      };
+    } else if (arrivals.length) {
+      flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]!, ...(compared.length > 1 ? { compared } : {}) };
+    }
   }
 
   // 2b) Home → departure airport access (parking if personal car, else transit/bus/carpool).

@@ -54,6 +54,11 @@ export interface RoadTripPlan {
 
 const num = (v: unknown, d = 0): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 
+/** Hard time-box any upstream call so nothing can hang the whole generation. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p.catch(() => fallback), new Promise<T>((res) => setTimeout(() => res(fallback), ms))]);
+}
+
 /* Shared caches so generating 3 variants doesn't re-hit Google/TP for the same
    city pair or airport. Reset per request batch. */
 type LegCache = Map<string, { durationMin: number; distanceKm: number } | null>;
@@ -63,7 +68,7 @@ async function cachedLeg(cache: LegCache, from: string, to: string): Promise<{ d
   const key = `${from}|${to}`.toLowerCase();
   if (cache.has(key)) return cache.get(key)!;
   let leg: { durationMin: number; distanceKm: number } | null = null;
-  try { leg = await itineraryService.driveLeg(from, to); } catch { leg = null; }
+  leg = await withTimeout(itineraryService.driveLeg(from, to), 7000, null);
   cache.set(key, leg);
   return leg;
 }
@@ -74,14 +79,12 @@ async function cachedFare(cache: FareCache, origin: string, dest: string, start?
   // (Ryanair, easyJet, Transavia…). Duffel per-cell was far too slow for the grid.
   let min: number | null = null;
   if (travelpayoutsService.configured()) {
-    try {
-      const fares = await travelpayoutsService.cheapestForRoute({
-        origin, destination: dest,
-        ...(start ? { departureDate: start } : {}), ...(end ? { returnDate: end } : {}),
-        oneWay: !end, limit: 3,
-      });
-      if (fares.length) min = fares[0]!.price;
-    } catch { /* ignore */ }
+    const fares = await withTimeout(travelpayoutsService.cheapestForRoute({
+      origin, destination: dest,
+      ...(start ? { departureDate: start } : {}), ...(end ? { returnDate: end } : {}),
+      oneWay: !end, limit: 3,
+    }), 6000, [] as Awaited<ReturnType<typeof travelpayoutsService.cheapestForRoute>>);
+    if (fares.length) min = fares[0]!.price;
   }
   cache.set(key, min);
   return min;
@@ -106,7 +109,7 @@ Réponds STRICTEMENT en JSON, sans texte autour :
 Prix hôtels/nuit réalistes pour la région et la saison. Toujours 3 tiers d'hôtel par ville.`;
 
   try {
-    const j = (await geminiService.generateJSON(prompt)) as any;
+    const j = (await withTimeout(geminiService.generateJSON(prompt), 28000, null)) as any;
     const arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
     const out = arr.map((v: any) => ({
       strategy: String(v.strategy || 'balanced'),
@@ -185,7 +188,7 @@ async function airportAccess(home: string, iata: string, hasCar: boolean, pax: n
   let result: RoadTripPlan['access'];
   try {
     const hub = AIRPORT_LABEL[iata] || `aéroport ${iata}`;
-    const { options } = await itineraryService.toHub({ origin: home, hub, profile: { pax } });
+    const { options } = await withTimeout(itineraryService.toHub({ origin: home, hub, profile: { pax } }), 8000, { origin: home, hub, options: [] as Awaited<ReturnType<typeof itineraryService.toHub>>['options'] });
     let pick: typeof options[0] | undefined;
     if (hasCar) pick = options.find((o) => o.id === 'parking') || options.find((o) => o.mode === 'DRIVE');
     else {

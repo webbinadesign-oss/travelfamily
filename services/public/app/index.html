@@ -544,6 +544,26 @@
   .opt-flight svg{ color:var(--ocean-700); flex:none; }
   .opt-incl{ margin-top:8px; font-size:11px; color:var(--text-muted); line-height:1.4; }
   .opt-lc{ margin-left:6px; font:800 9px var(--font-display); text-transform:uppercase; color:var(--success,#15A34A); background:var(--success-bg,#E7F6EE); border-radius:99px; padding:1px 6px; }
+  .opt-compared{ margin-top:6px; font-size:11px; color:var(--text-2); background:var(--surface-sunk); border-radius:var(--r-sm); padding:6px 9px; line-height:1.4; }
+
+  /* ===== PRICE GRID (Google-Flights style) ===== */
+  .pg-head{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:2px; }
+  .pg-nav{ width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--ocean-700); cursor:pointer; display:grid; place-items:center; }
+  .pg-load{ display:flex; align-items:center; justify-content:center; gap:8px; padding:24px; font-size:13px; color:var(--text-2); }
+  .pg-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--r-md); }
+  .pg-table{ border-collapse:separate; border-spacing:4px; margin:0 auto; }
+  .pg-corner{ background:transparent; }
+  .pg-col, .pg-row{ font:700 10px var(--font-display); color:var(--text-2); text-align:center; padding:3px 5px; white-space:nowrap; }
+  .pg-col span, .pg-row span{ display:block; font-weight:600; font-size:8.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
+  .pg-row{ text-align:right; padding-right:8px; }
+  .pg-cell{ min-width:52px; text-align:center; font:700 12.5px var(--font-display); color:var(--text); background:var(--surface-sunk); border-radius:var(--r-sm); padding:9px 6px; cursor:pointer; border:1.5px solid transparent; }
+  .pg-cell:hover{ border-color:var(--ocean-700); }
+  .pg-eur{ font-size:9px; color:var(--text-muted); margin-left:1px; }
+  .pg-empty{ color:var(--text-muted); cursor:default; background:transparent; font-weight:400; }
+  .pg-best{ background:var(--success-bg,#E7F6EE); color:var(--success,#15A34A); border-color:var(--success,#15A34A); }
+  .pg-strip{ display:flex; gap:8px; overflow-x:auto; padding:2px; }
+  .pg-chip{ flex:none; display:flex; flex-direction:column; align-items:center; gap:2px; border:1.5px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:9px 12px; cursor:pointer; }
+  .pg-chip span{ font-size:10px; color:var(--text-muted); } .pg-chip b{ font-family:var(--font-display); font-size:13px; }
 
   /* ===== CARNET DE VOYAGE (imprimable) ===== */
   .cv-sheet{ padding:0 16px 30px; max-width:720px; margin:0 auto; }
@@ -795,6 +815,7 @@
   <script type="text/babel" src="assets/app-itinerary.jsx"></script>
   <script type="text/babel" src="assets/app-roadtrip.jsx"></script>
   <script type="text/babel" src="assets/app-carnet.jsx"></script>
+  <script type="text/babel" src="assets/app-pricegrid.jsx"></script>
   <script type="text/babel" src="assets/app-booking.jsx"></script>
   <script type="text/babel" src="assets/app-explorer.jsx"></script>
   <script type="text/babel" src="assets/app-formalites.jsx"></script>

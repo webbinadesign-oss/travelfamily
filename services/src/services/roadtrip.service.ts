@@ -16,6 +16,8 @@
 import { geminiService } from './gemini.service.js';
 import { travelpayoutsService } from './travelpayouts.service.js';
 import { itineraryService } from './itinerary.service.js';
+import { duffelService } from './duffel.service.js';
+import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 
 export interface RoadStop {
@@ -39,7 +41,7 @@ export interface RoadTripPlan {
   endDate?: string;
   travelers: number;
   mode: 'fly-drive' | 'road';
-  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string };
+  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string; compared?: Array<{ iata: string; price: number }> };
   access?: { mode: string; label: string; durationMin: number; cost: number; currency: string; bookUrl?: string; note?: string; real: boolean };
   car?: { days: number; perDay: number; total: number; category: string; bookUrl: string };
   stops: RoadStop[];
@@ -70,7 +72,8 @@ async function cachedLeg(cache: LegCache, from: string, to: string): Promise<{ d
 async function cachedFare(cache: FareCache, origin: string, dest: string, start?: string, end?: string): Promise<number | null> {
   const key = `${origin}|${dest}|${start || ''}|${end || ''}`;
   if (cache.has(key)) return cache.get(key)!;
-  let price: number | null = null;
+  const prices: number[] = [];
+  // Source 1: Travelpayouts (includes low-cost: Ryanair, easyJet, Transavia…).
   if (travelpayoutsService.configured()) {
     try {
       const fares = await travelpayoutsService.cheapestForRoute({
@@ -78,11 +81,22 @@ async function cachedFare(cache: FareCache, origin: string, dest: string, start?
         ...(start ? { departureDate: start } : {}), ...(end ? { returnDate: end } : {}),
         oneWay: !end, limit: 3,
       });
-      if (fares.length) price = fares[0]!.price;
-    } catch { price = null; }
+      if (fares.length) prices.push(fares[0]!.price);
+    } catch { /* ignore */ }
   }
-  cache.set(key, price);
-  return price;
+  // Source 2: Duffel live search (covers major carriers TP may miss) — needs a date.
+  if (start && env.duffelApiKey) {
+    try {
+      const offers = await duffelService.searchFlights({
+        origin, destination: dest, departureDate: start,
+        ...(end ? { returnDate: end } : {}), adults: 1, maxResults: 1,
+      } as Parameters<typeof duffelService.searchFlights>[0]);
+      if (offers.length) prices.push(offers[0]!.price.amount);
+    } catch { /* ignore */ }
+  }
+  const min = prices.length ? Math.min(...prices) : null;
+  cache.set(key, min);
+  return min;
 }
 
 /** Ask Gemini for 3 DISTINCT complete itinerary variants to compare. */
@@ -240,9 +254,16 @@ async function enrichVariant(
     const pairs: Array<{ o: string; a: string }> = [];
     for (const o of origins) for (const a of arrivals) pairs.push({ o, a });
     const fares = await Promise.all(pairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, input.endDate).then((price) => ({ ...p, price }))));
+    // Best price per departure airport → the "compared" list the user sees.
+    const perOrigin = new Map<string, number>();
+    for (const f of fares) if (f.price != null) { const cur = perOrigin.get(f.o); if (cur == null || f.price < cur) perOrigin.set(f.o, f.price); }
+    const compared = origins
+      .filter((o) => perOrigin.has(o))
+      .map((o) => ({ iata: o, price: Math.round(perOrigin.get(o)! * pax) }))
+      .sort((a, b) => a.price - b.price);
     let best: { o: string; a: string; price: number } | null = null;
     for (const f of fares) if (f.price != null && (!best || f.price < best.price)) best = { o: f.o, a: f.a, price: f.price };
-    if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a, lowcost: true, note: 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, bagage en soute en option — à ajouter au moment de la réservation. Conditions de modification/annulation selon la compagnie.' };
+    if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a, lowcost: true, note: 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, bagage en soute en option — à ajouter au moment de la réservation. Conditions de modification/annulation selon la compagnie.', ...(compared.length > 1 ? { compared } : {}) };
     else if (arrivals.length) flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]! };
   }
 

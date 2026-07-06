@@ -429,18 +429,50 @@
     /** Plusieurs itinéraires complets à COMPARER avant réservation. */
     planRoadtripOptions: async function (input) {
       if (!api() || !input) return null;
-      var ctrl = new AbortController();
-      var timer = setTimeout(function(){ ctrl.abort(); }, 110000); // 110s (Render cold start + 3 variantes)
-      try {
-        var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
-        var r = await fetch(api() + '/api/roadtrip/options', { method: 'POST', headers: headers, body: JSON.stringify(input), signal: ctrl.signal });
-        clearTimeout(timer);
-        if (!r.ok) return { error: 'server', status: r.status };
-        return (await r.json()).options || [];
-      } catch (e) {
-        clearTimeout(timer);
-        return { error: (e && e.name === 'AbortError') ? 'timeout' : 'network' };
+      var self = this;
+      async function attempt(ms){
+        var ctrl = new AbortController();
+        var timer = setTimeout(function(){ ctrl.abort(); }, ms);
+        try {
+          var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+          var r = await fetch(api() + '/api/roadtrip/options', { method: 'POST', headers: headers, body: JSON.stringify(input), signal: ctrl.signal });
+          clearTimeout(timer);
+          if (!r.ok) return { error: 'server', status: r.status };
+          return (await r.json()).options || [];
+        } catch (e) {
+          clearTimeout(timer);
+          return { error: (e && e.name === 'AbortError') ? 'timeout' : 'network' };
+        }
       }
+      // First try; if the server was asleep (timeout/network), retry once — it's now warm.
+      var res = await attempt(70000);
+      if (res && res.error && (res.error === 'timeout' || res.error === 'network')) {
+        res = await attempt(90000);
+      }
+      return res;
+    },
+
+    /** Wake the backend (Render free tier sleeps). Call on screen mount. */
+    warm: function () {
+      if (!api()) return;
+      try { fetch(api() + '/api/health', { cache: 'no-store' }).catch(function(){}); } catch (e) {}
+    },
+
+    /** Grille de prix par dates (type Google Flights) — 1 appel, tarifs réels. */
+    priceGrid: async function (origin, destination, month, opts) {
+      if (!api()) return null;
+      var ctrl = new AbortController();
+      var timer = setTimeout(function(){ ctrl.abort(); }, 25000);
+      try {
+        opts = opts || {};
+        var p = new URLSearchParams({ origin: origin, destination: destination, month: month });
+        if (opts.returnMonth) p.set('returnMonth', opts.returnMonth);
+        if (opts.pax) p.set('pax', String(opts.pax));
+        var r = await fetch(api() + '/api/flights/pricegrid?' + p.toString(), { cache: 'no-store', signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { clearTimeout(timer); return null; }
     },
 
     /** Annulation d'une commande Duffel (devis du remboursement puis confirmation). */

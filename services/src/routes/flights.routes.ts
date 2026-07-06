@@ -99,6 +99,7 @@ flightsRouter.get(
   }),
 );
 
+/** POST /api/flights/order — issue a real flight order (Duffel; test balance in test mode). */
 const OrderBody = z.object({
   offerId: z.string().min(3),
   passengers: z.array(z.object({
@@ -117,6 +118,34 @@ flightsRouter.post('/order', validate(OrderBody, 'body'), asyncHandler(async (re
   if (!env.duffelApiKey) throw ApiError.serviceUnavailable('Réservation de vol indisponible.');
   const b = valid<z.infer<typeof OrderBody>>(req);
   res.status(201).json(await duffelService.createOrder(b));
+}));
+
+const GridQuery = z.object({
+  origin: z.string().length(3),
+  destination: z.string().length(3),
+  month: z.string().regex(/^\d{4}-\d{2}$/),      // YYYY-MM
+  returnMonth: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  pax: z.coerce.number().int().min(1).max(9).optional(),
+});
+
+/** GET /api/flights/pricegrid — Google-Flights-style price matrix (departure ×
+ *  return dates) for a month, in ONE Travelpayouts call. Real cached fares. */
+flightsRouter.get('/pricegrid', validate(GridQuery, 'query'), asyncHandler(async (req, res) => {
+  const q = valid<z.infer<typeof GridQuery>>(req);
+  if (!travelpayoutsService.configured()) throw ApiError.serviceUnavailable('Grille de prix indisponible.');
+  const pax = q.pax || 1;
+  const fares = await travelpayoutsService.cheapestForRoute({
+    origin: q.origin, destination: q.destination,
+    departureDate: q.month, returnDate: q.returnMonth || q.month,
+    oneWay: false, limit: 30,
+  });
+  // Bucket into departure → { returnDate → price } grid.
+  const cells = fares.map((f) => ({
+    depart: f.departureDate, ret: f.returnDate || '',
+    price: Math.round(f.price * pax), airline: f.airline || '', link: f.bookLink,
+  })).filter((c) => c.depart);
+  const cheapest = cells.length ? Math.min(...cells.map((c) => c.price)) : 0;
+  res.json({ origin: q.origin, destination: q.destination, month: q.month, pax, cheapest, cells });
 }));
 
 /** GET /api/flights/order/:id — read an order. */

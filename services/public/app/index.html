@@ -541,6 +541,42 @@
   .opt-mini span{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text-2); }
   .opt-mini svg{ color:var(--ocean-700); flex:none; }
 
+  /* ===== CARNET DE VOYAGE (imprimable) ===== */
+  .cv-sheet{ padding:0 16px 30px; max-width:720px; margin:0 auto; }
+  .cv-cover{ text-align:center; padding:18px 0 8px; }
+  .cv-brand{ font:800 13px var(--font-display); color:var(--ocean-700); letter-spacing:.02em; }
+  .cv-logo{ font-size:15px; }
+  .cv-title{ font-family:var(--font-display); font-weight:800; font-size:26px; line-height:1.12; margin:8px 0 4px; color:var(--text); }
+  .cv-sub{ font-size:13px; color:var(--text-2); }
+  .cv-meta{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:10px 0 12px; }
+  .cv-meta span{ font:600 11.5px var(--font-display); color:var(--text-2); background:var(--surface-sunk); border-radius:99px; padding:4px 11px; }
+  .cv-map{ width:100%; border-radius:var(--r-lg); border:1px solid var(--border); display:block; }
+  .cv-block{ margin-top:18px; }
+  .cv-h2{ font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--ocean-700); border-bottom:2px solid var(--ocean-50); padding-bottom:5px; margin-bottom:10px; }
+  .cv-row{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; font-size:13.5px; }
+  .cv-stop{ margin-bottom:14px; }
+  .cv-drive{ font-size:11.5px; color:var(--text-2); background:var(--surface-sunk); border-radius:var(--r-pill); padding:5px 10px; display:inline-block; margin-bottom:6px; }
+  .cv-stop-head{ display:flex; align-items:center; gap:9px; }
+  .cv-num{ width:22px; height:22px; border-radius:50%; background:var(--ocean-700); color:#fff; font:800 12px var(--font-display); display:grid; place-items:center; flex:none; }
+  .cv-stop-head b{ font-family:var(--font-display); font-size:16px; flex:1; }
+  .cv-nights{ font-size:11.5px; color:var(--text-muted); }
+  .cv-summary{ font-size:12.5px; color:var(--text-2); margin:4px 0 0; line-height:1.5; }
+  .cv-day{ margin-top:7px; } .cv-day b{ font-size:13px; } .cv-day ul{ margin:3px 0 0; padding-left:18px; font-size:12.5px; color:var(--text-2); line-height:1.5; }
+  .cv-hotel{ font-size:12.5px; margin-top:7px; color:var(--text); } .cv-tier{ color:var(--text-muted); }
+  .cv-brow{ display:flex; justify-content:space-between; padding:6px 0; font-size:13.5px; border-bottom:1px dashed var(--border); }
+  .cv-btotal{ border-bottom:none; border-top:2px solid var(--text); margin-top:3px; padding-top:8px; font-size:15px; }
+  .cv-note{ font-size:11.5px; color:var(--text-muted); margin-top:6px; line-height:1.5; }
+  .cv-tips{ margin:0; padding-left:18px; font-size:12.5px; color:var(--text-2); line-height:1.55; }
+  .cv-foot{ margin-top:22px; padding-top:12px; border-top:1px solid var(--border); font-size:11.5px; color:var(--text-muted); text-align:center; }
+  @media print{
+    body{ background:#fff !important; }
+    .device-frame, .webbina-hero, .webbina-tag, .cv-noprint, .tabbar, .stage-tools, .app-header{ display:none !important; }
+    .cv-screen{ position:static !important; height:auto !important; overflow:visible !important; }
+    .cv-sheet{ max-width:none; padding:0; }
+    .cv-stop, .cv-avoidbreak, .cv-cover{ break-inside:avoid; }
+    .cv-h2{ break-after:avoid; }
+  }
+
 
   /* ===== SPONSORED (free tier) ===== */
   .spons-row{ padding:6px 18px 2px; }
@@ -754,6 +790,7 @@
   <script type="text/babel" src="assets/app-pax.jsx"></script>
   <script type="text/babel" src="assets/app-itinerary.jsx"></script>
   <script type="text/babel" src="assets/app-roadtrip.jsx"></script>
+  <script type="text/babel" src="assets/app-carnet.jsx"></script>
   <script type="text/babel" src="assets/app-booking.jsx"></script>
   <script type="text/babel" src="assets/app-explorer.jsx"></script>
   <script type="text/babel" src="assets/app-formalites.jsx"></script>

@@ -407,7 +407,7 @@ function ConversationScreen({ ctx, seed, go }) {
         {phase==='done' && (
           <div style={{ marginTop:8 }}>
             <button className="btn btn--cta btn--block" onClick={()=>go('results', answers)}><Icon n="compass" size={20} />Voir mes 4 destinations<Icon n="arrowRight" size={20} /></button>
-            <button className="btn btn--secondary btn--block" style={{ marginTop:8 }} onClick={()=>go('roadtrip')}><Icon n="route" size={18} />Ou un carnet de route sur mesure</button>
+            <button className="btn btn--secondary btn--block" style={{ marginTop:8 }} onClick={()=>{ try{ const a=answers||{}; window.__TF_RT_PREFILL={ origin:a.from||'', travelers:Math.max(1,(+a.adults||2)+(+a.kids||0)), budget:+a.budget||0 }; }catch(e){} go('roadtrip'); }}><Icon n="route" size={18} />Ou un carnet de route sur mesure</button>
           </div>
         )}
       </div>

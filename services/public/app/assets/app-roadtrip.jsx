@@ -11,12 +11,13 @@ function hm(min){ const h=Math.floor(min/60), m=Math.round(min%60); return h?`${
 
 /* ---- Formulaire de génération ---- */
 function RoadtripForm({ onPlan, busy }){
-  const [origin,setOrigin]=React.useState(()=>{ try{ return localStorage.getItem('tf_home_addr')||''; }catch(e){ return ''; } });
+  const PRE = (typeof window!=='undefined' && window.__TF_RT_PREFILL) || {};
+  const [origin,setOrigin]=React.useState(()=>{ try{ return PRE.origin||localStorage.getItem('tf_home_addr')||''; }catch(e){ return PRE.origin||''; } });
   const [region,setRegion]=React.useState('');
   const [must,setMust]=React.useState('');
   const [start,setStart]=React.useState('');
   const [end,setEnd]=React.useState('');
-  const [pax,setPax]=React.useState(2);
+  const [pax,setPax]=React.useState(PRE.travelers||2);
   const [mode,setMode]=React.useState('fly-drive');
   const [oIata,setOIata]=React.useState(()=>{ try{ return localStorage.getItem('tf_pref_origin_iata')||'MPL'; }catch(e){ return 'MPL'; } });
   const AIRPORTS=[['MPL','Montpellier'],['CDG','Paris CDG'],['ORY','Paris Orly'],['MRS','Marseille'],['LYS','Lyon'],['TLS','Toulouse'],['NCE','Nice'],['BOD','Bordeaux'],['NTE','Nantes'],['BCN','Barcelone'],['GVA','Genève'],['BRU','Bruxelles']];
@@ -161,6 +162,9 @@ function RoadbookView({ plan, onReset, book }){
       <button className="btn btn--cta btn--block" onClick={()=>{ if(book){ book({ dest:{ name:plan.title, country:plan.region }, flight:{ airline:plan.title, code:'★', price:plan.budget.total }, roadtrip:plan }); } }}>
         <Icon n="check" size={18} /> Choisir cet itinéraire
       </button>
+      <button className="btn btn--secondary btn--block" style={{ marginTop:8 }} onClick={()=>{ window.__TF_CARNET_PLAN=plan; go('carnet'); }}>
+        <Icon n="download" size={16} /> Aperçu du carnet de voyage
+      </button>
       <button className="btn btn--ghost btn--block" onClick={onReset}><Icon n="arrowLeft" size={16} /> Comparer à nouveau</button>
     </div>
   );
@@ -236,3 +240,29 @@ function OptionsCompare({ options, onPick, onReset }){
 }
 
 Object.assign(window, { RoadtripScreen });
+
+/* ---- Récap itinéraire + carte Google (AVANT paiement, modifiable) ---- */
+function RoadtripRecap({ plan, onEdit }){
+  if(!plan || !plan.stops) return null;
+  const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
+  const map = api ? api+'/api/map/route.png?points='+encodeURIComponent(plan.stops.map(s=>s.city).join('|'))+(plan.region?('&region='+encodeURIComponent(plan.region)):'') : null;
+  const cur = plan.budget && plan.budget.currency==='EUR'?'€':(plan.budget&&plan.budget.currency)||'€';
+  return (
+    <div className="card card--pad">
+      <div className="row between" style={{ alignItems:'center', marginBottom:8 }}>
+        <h4 style={{ fontSize:14 }}>Votre itinéraire</h4>
+        {onEdit && <button className="btn btn--ghost btn--sm" onClick={onEdit}><Icon n="edit" size={14} /> Modifier</button>}
+      </div>
+      {map && <img src={map} alt="Carte de l'itinéraire" crossOrigin="anonymous" style={{ width:'100%', borderRadius:'var(--r-md)', border:'1px solid var(--border)', display:'block', marginBottom:10 }} onError={e=>{e.target.style.display='none';}} />}
+      <div className="opt-route" style={{ marginTop:0 }}>{plan.stops.map((s,k)=>(<React.Fragment key={k}>{k>0 && <Icon n="chevronRight" size={12} style={{ color:'var(--text-muted)' }} />}<span>{s.city} <span className="micro">({s.nights}n)</span></span></React.Fragment>))}</div>
+      <div className="opt-mini" style={{ marginTop:9 }}>
+        {plan.flight && <span><Icon n="plane" size={12} /> {plan.flight.real?fmt(plan.flight.price)+' '+cur:'vol'}</span>}
+        {plan.car && <span><Icon n="car" size={12} /> {plan.car.category}</span>}
+        <span><Icon n="star" size={12} /> hôtels {plan.hotelTier||'confort'}</span>
+        {plan.drivingTotalKm>0 && <span><Icon n="route" size={12} /> {fmt(plan.drivingTotalKm)} km</span>}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { RoadtripRecap });

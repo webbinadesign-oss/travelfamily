@@ -209,6 +209,12 @@ function TripDetailScreen({ trip, go }){
 
         {typeof FullItinerary!=='undefined' && <FullItinerary departHub={(t.origin||'votre aéroport de départ')} arriveHub={t.destination||''} pax={t.pax} />}
 
+        {t.roadtrip && (
+          <button className="btn btn--secondary btn--block" style={{ marginTop:12 }} onClick={()=>{ window.__TF_CARNET_PLAN=t.roadtrip; go('carnet', t); }}>
+            <Icon n="download" size={16} /> Mon carnet de voyage
+          </button>
+        )}
+
         <button className="card card--pad trip-link" onClick={()=>go('formalites')}>
           <div className="mem-ic"><Icon n="shield" size={18} /></div>
           <b style={{ flex:1, textAlign:'left', fontFamily:'var(--font-display)', fontSize:14.5 }}>Vérifier mes formalités</b>

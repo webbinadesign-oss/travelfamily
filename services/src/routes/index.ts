@@ -18,11 +18,12 @@ import { watchRouter } from './watch.routes.js';
 import { formalitiesRouter } from './formalities.routes.js';
 import { itineraryRouter } from './itinerary.routes.js';
 import { roadtripRouter } from './roadtrip.routes.js';
+import { mapRouter } from './map.routes.js';
 
 export const apiRouter = Router();
 
 /** Build marker — bump when you deploy so you can confirm the live version. */
-export const BUILD_VERSION = 'phase3-roadtrip-options-1';
+export const BUILD_VERSION = 'phase3-carnet-1';
 
 /** Liveness + which integrations are configured + build version. */
 apiRouter.get('/health', (_req, res) => {
@@ -61,3 +62,4 @@ apiRouter.use('/watch', watchRouter); // Alerte baisse de prix (Premium)
 apiRouter.use('/formalities', formalitiesRouter); // Formalités réelles (Gemini, dynamique)
 apiRouter.use('/itinerary', itineraryRouter); // Itinéraire porte-à-porte multimodal (Google Routes)
 apiRouter.use('/roadtrip', roadtripRouter); // Carnet de route multi-villes (Gemini + données réelles)
+apiRouter.use('/map', mapRouter); // Carte statique Google (proxy, clé côté serveur)

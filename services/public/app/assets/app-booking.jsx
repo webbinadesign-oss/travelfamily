@@ -273,6 +273,7 @@ function BookingScreen({ booking, go }) {
               </div>
               <div className="micro" style={{ marginTop:10, color:'var(--text-2)' }}><Icon n="users" size={12} /> {pax} voyageur{pax>1?'s':''} au total</div>
             </div>
+            {typeof RoadtripRecap!=='undefined' && b.roadtrip && <RoadtripRecap plan={b.roadtrip} onEdit={()=>go('roadtrip')} />}
             {typeof PaxIdentity!=='undefined' && <PaxIdentity count={pax} value={paxIds} onChange={setPaxIds} saved={savedPax} />}
             {typeof ItinCartSummary!=='undefined' && <ItinCartSummary />}
             <div className="card card--pad cond-card">

@@ -138,6 +138,22 @@ interface OpenAIResponse {
 }
 
 export const openaiService = {
+  /** Plain JSON generation from a single prompt (fallback for Gemini). */
+  async generateJSON(prompt: string): Promise<unknown> {
+    assertConfigured();
+    const data = await httpRequest<OpenAIResponse>(OPENAI_URL, {
+      method: 'POST', provider: 'openai', timeoutMs: 40_000,
+      headers: { Authorization: `Bearer ${env.openaiApiKey}` },
+      body: {
+        model: env.openaiModel, temperature: 0.2,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'user', content: prompt }],
+      },
+    });
+    const content = data.choices[0]?.message.content ?? '{}';
+    try { return JSON.parse(content); } catch { return null; }
+  },
+
   /** One-shot structured reply. */
   async chat(messages: ChatMessage[], context?: TripContext): Promise<ChatResponse> {
     assertConfigured();

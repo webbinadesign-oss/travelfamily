@@ -14,6 +14,7 @@
  * Everything is clearly flagged real vs estimate. Never invents a bookable price.
  */
 import { geminiService } from './gemini.service.js';
+import { openaiService } from './openai.service.js';
 import { travelpayoutsService } from './travelpayouts.service.js';
 import { itineraryService } from './itinerary.service.js';
 import { logger } from '../lib/logger.js';
@@ -109,8 +110,15 @@ Réponds STRICTEMENT en JSON, sans texte autour :
 Prix hôtels/nuit réalistes pour la région et la saison. Toujours 3 tiers d'hôtel par ville.`;
 
   try {
-    const j = (await withTimeout(geminiService.generateJSON(prompt), 28000, null)) as any;
-    const arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
+    let j = (await withTimeout(geminiService.generateJSON(prompt), 28000, null)) as any;
+    let arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
+    // Fallback: if Gemini is rate-limited (429) or returns nothing, use OpenAI.
+    if (!arr.length) {
+      try {
+        j = (await withTimeout(openaiService.generateJSON(prompt), 35000, null)) as any;
+        arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
+      } catch { /* openai not configured or failed */ }
+    }
     const out = arr.map((v: any) => ({
       strategy: String(v.strategy || 'balanced'),
       label: String(v.label || 'Itinéraire'),

@@ -48,6 +48,26 @@ function extractText(data: GeminiResponse): string {
   return data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') ?? '';
 }
 
+/** Tolerant JSON parse: strips markdown fences and recovers from truncation. */
+function parseLooseJSON(raw: string): unknown {
+  let t = (raw || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/,'').trim();
+  try { return JSON.parse(t); } catch { /* try recovery */ }
+  const start = t.indexOf('{');
+  if (start > 0) t = t.slice(start);
+  try { return JSON.parse(t); } catch { /* try closing truncated braces/brackets */ }
+  // Balance unclosed brackets by trimming to the last complete object then closing.
+  let depthCurly = 0, depthSquare = 0, lastSafe = -1;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '{') depthCurly++; else if (c === '}') depthCurly--;
+    else if (c === '[') depthSquare++; else if (c === ']') depthSquare--;
+    if (depthCurly >= 0 && depthSquare >= 0) lastSafe = i;
+  }
+  let candidate = t.slice(0, lastSafe + 1);
+  candidate += ']'.repeat(Math.max(0, depthSquare)) + '}'.repeat(Math.max(0, depthCurly));
+  try { return JSON.parse(candidate); } catch { return null; }
+}
+
 /** Candidate models, tried in order. The env model (if set) goes first.
     Google retires older names over time, so we fall through to current ones. */
 function candidateModels(): string[] {
@@ -113,17 +133,17 @@ export const geminiService = {
         const data = await httpRequest<GeminiResponse>(
           `${BASE}/${model}:generateContent`,
           {
-            method: 'POST', provider: 'gemini', timeoutMs: 30_000, retries: 0,
+            method: 'POST', provider: 'gemini', timeoutMs: 40_000, retries: 0,
             query: { key: env.geminiApiKey },
             body: {
               contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+              generationConfig: { temperature: 0.2, responseMimeType: 'application/json', maxOutputTokens: 8192 },
             },
           },
         );
         workingModel = model;
         const txt = extractText(data) || '{}';
-        try { return JSON.parse(txt); } catch { return null; }
+        return parseLooseJSON(txt);
       } catch (err) { lastErr = err; }
     }
     throw lastErr instanceof Error ? lastErr : ApiError.upstream('gemini', 502);

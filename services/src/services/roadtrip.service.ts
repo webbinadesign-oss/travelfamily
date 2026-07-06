@@ -271,7 +271,7 @@ async function enrichVariant(
     let best: { o: string; a: string; price: number } | null = null;
     for (const f of fares) if (f.price != null && (!best || f.price < best.price)) best = { o: f.o, a: f.a, price: f.price };
     if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a, lowcost: true, note: 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, bagage en soute en option — à ajouter au moment de la réservation. Conditions de modification/annulation selon la compagnie.', ...(compared.length > 1 ? { compared } : {}) };
-    else if (arrivals.length) flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]! };
+    else if (arrivals.length) flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]!, ...(compared.length > 1 ? { compared } : {}) };
   }
 
   // 2b) Home → departure airport access (parking if personal car, else transit/bus/carpool).

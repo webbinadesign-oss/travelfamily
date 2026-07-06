@@ -105,8 +105,8 @@ Les 3 variantes doivent être VRAIMENT différentes :
 
 Contraintes : étapes de route raisonnables (idéalement <4-5h/jour), nuits bien réparties. Si "avion + voiture", indique l'aéroport (airportIata) des villes qui en ont un.
 
-Réponds STRICTEMENT en JSON compact, sans texte autour. Sois CONCIS : max 2 items par jour, phrases courtes.
-{"variants":[{"strategy":"eco","label":"Le plus économique","angle":"phrase courte","title":"...","stops":[{"city":"Porto","airportIata":"OPO|null","nights":2,"summary":"phrase courte","days":[{"title":"...","items":["v1","v2"]}],"hotels":[{"tier":"éco","name":"...","pricePerNight":65},{"tier":"confort","name":"...","pricePerNight":105},{"tier":"premium","name":"...","pricePerNight":175}]}],"notes":["conseil"]}, {...balanced...}, {...comfort...}]}
+Réponds STRICTEMENT en JSON compact, sans texte autour. Sois CONCIS : pas de jour-par-jour (juste un résumé court par ville).
+{"variants":[{"strategy":"eco","label":"Le plus économique","angle":"phrase courte","title":"...","stops":[{"city":"Porto","airportIata":"OPO|null","nights":2,"summary":"phrase courte des incontournables","hotels":[{"tier":"éco","name":"...","pricePerNight":65},{"tier":"confort","name":"...","pricePerNight":105},{"tier":"premium","name":"...","pricePerNight":175}]}],"notes":["conseil"]}, {...balanced...}, {...comfort...}]}
 Prix hôtels/nuit réalistes. Toujours 3 tiers d'hôtel par ville. Reste bref pour tenir dans la réponse.`;
 
   try {
@@ -130,7 +130,12 @@ Prix hôtels/nuit réalistes. Toujours 3 tiers d'hôtel par ville. Reste bref po
         airportIata: s.airportIata && String(s.airportIata).length === 3 ? String(s.airportIata).toUpperCase() : undefined,
         nights: Math.max(0, num(s.nights, 1)),
         summary: String(s.summary || ''),
-        days: Array.isArray(s.days) ? s.days.map((d: any) => ({ title: String(d.title || ''), items: (Array.isArray(d.items) ? d.items : []).map((x: any) => String(x)) })) : [],
+        days: Array.isArray(s.days) && s.days.length
+          ? s.days.map((d: any) => ({ title: String(d.title || ''), items: (Array.isArray(d.items) ? d.items : []).map((x: any) => String(x)) }))
+          : Array.from({ length: Math.max(1, Math.max(0, num(s.nights, 1))) }, (_, di) => ({
+              title: `Jour ${di + 1} — ${String(s.city || '').trim()}`,
+              items: di === 0 && s.summary ? [String(s.summary)] : ['Découverte libre et visites incontournables'],
+            })),
         hotels: Array.isArray(s.hotels) ? s.hotels.slice(0, 3).map((h: any) => ({
           tier: (['éco', 'confort', 'premium'].includes(h.tier) ? h.tier : 'confort') as RoadStop['hotels'][0]['tier'],
           name: String(h.name || 'Hôtel'), pricePerNight: num(h.pricePerNight, 90),

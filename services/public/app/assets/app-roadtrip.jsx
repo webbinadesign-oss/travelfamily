@@ -179,8 +179,10 @@ function RoadtripScreen({ go, book }){
     setBusy(true); setErr(''); setOptions(null); setChosen(null);
     try{
       const r = window.WebbinaBackend && WebbinaBackend.planRoadtripOptions ? await WebbinaBackend.planRoadtripOptions(input) : null;
-      if(r && r.length) setOptions(r);
-      else setErr('Webbina n\'a pas pu générer d\'itinéraires (backend en veille ?). Réessayez dans un instant.');
+      if(Array.isArray(r) && r.length) setOptions(r);
+      else if(r && r.error==='timeout') setErr('C\'est un peu long — le serveur se réveillait. Relancez : ce sera rapide cette fois. 💙');
+      else if(r && r.error) setErr('Connexion au serveur difficile. Réessayez dans un instant.');
+      else setErr('Webbina n\'a pas pu générer d\'itinéraires. Vérifiez la destination et réessayez.');
     }catch(e){ setErr('Une erreur est survenue. Réessayez.'); }
     setBusy(false);
   }

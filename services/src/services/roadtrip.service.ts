@@ -147,26 +147,25 @@ async function enrichVariant(
   const days = totalNights + 1;
   const chosenTier = HOTEL_FOR[v.strategy] || 'confort';
 
-  // 1) Real driving legs between stops (cached across variants).
+  // 1) Real driving legs between stops (cached, computed IN PARALLEL).
   let drivingTotalKm = 0;
-  for (let i = 1; i < stops.length; i++) {
-    const from = stops[i - 1]!.city, to = stops[i]!.city;
-    const leg = await cachedLeg(legCache, `${from}, ${input.region}`, `${to}, ${input.region}`);
-    if (leg) {
-      stops[i]!.driveFromPrev = { from, to, durationMin: leg.durationMin, distanceKm: leg.distanceKm, real: true };
-      drivingTotalKm += leg.distanceKm;
-    }
+  const legResults = await Promise.all(
+    stops.slice(1).map((_, idx) => {
+      const from = stops[idx]!.city, to = stops[idx + 1]!.city;
+      return cachedLeg(legCache, `${from}, ${input.region}`, `${to}, ${input.region}`).then((leg) => ({ i: idx + 1, from, to, leg }));
+    }),
+  );
+  for (const { i, from, to, leg } of legResults) {
+    if (leg) { stops[i]!.driveFromPrev = { from, to, durationMin: leg.durationMin, distanceKm: leg.distanceKm, real: true }; drivingTotalKm += leg.distanceKm; }
   }
 
-  // 2) Cheapest flight (fly-drive) across candidate airports (cached).
+  // 2) Cheapest flight (fly-drive) across candidate airports (cached, PARALLEL).
   let flight: RoadTripPlan['flight'];
   if (input.mode === 'fly-drive' && input.originIata) {
-    const candidates = stops.map((s) => s.airportIata).filter(Boolean) as string[];
+    const candidates = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 3);
+    const fares = await Promise.all(candidates.map((arr) => cachedFare(fareCache, input.originIata!, arr, input.startDate, input.endDate).then((p) => ({ arr, p }))));
     let best: { arr: string; price: number } | null = null;
-    for (const arr of candidates) {
-      const p = await cachedFare(fareCache, input.originIata, arr, input.startDate, input.endDate);
-      if (p != null && (!best || p < best.price)) best = { arr, price: p };
-    }
+    for (const { arr, p } of fares) if (p != null && (!best || p < best.price)) best = { arr, price: p };
     if (best) flight = { origin: input.originIata, arrival: best.arr, price: best.price * pax, currency, real: true, airport: best.arr };
     else if (candidates.length) flight = { origin: input.originIata, arrival: candidates[0]!, price: 0, currency, real: false, airport: candidates[0]! };
   }
@@ -181,8 +180,10 @@ async function enrichVariant(
   // 4) Fuel + tolls (real distance; road mode adds home↔region).
   let roadKm = drivingTotalKm;
   if (input.mode === 'road' && stops.length) {
-    const inLeg = await cachedLeg(legCache, input.origin, `${stops[0]!.city}, ${input.region}`);
-    const outLeg = await cachedLeg(legCache, `${stops[stops.length - 1]!.city}, ${input.region}`, input.origin);
+    const [inLeg, outLeg] = await Promise.all([
+      cachedLeg(legCache, input.origin, `${stops[0]!.city}, ${input.region}`),
+      cachedLeg(legCache, `${stops[stops.length - 1]!.city}, ${input.region}`, input.origin),
+    ]);
     roadKm += (inLeg?.distanceKm || 0) + (outLeg?.distanceKm || 0);
   }
   const fuel = Math.round((roadKm / 100) * 7 * 1.75);
@@ -238,11 +239,10 @@ export const roadtripService = {
     if (!variants.length) return [];
     const legCache: LegCache = new Map();
     const fareCache: FareCache = new Map();
+    // Enrich all variants IN PARALLEL (major speedup on cold Render).
+    const settled = await Promise.allSettled(variants.map((v) => enrichVariant(v, input, legCache, fareCache)));
     const plans: RoadTripPlan[] = [];
-    for (const v of variants) {
-      try { plans.push(await enrichVariant(v, input, legCache, fareCache)); }
-      catch (e) { logger.warn('roadtrip enrich failed', { err: String(e) }); }
-    }
+    for (const s of settled) { if (s.status === 'fulfilled') plans.push(s.value); else logger.warn('roadtrip enrich failed', { err: String(s.reason) }); }
     // Cheapest first.
     return plans.sort((a, b) => a.budget.total - b.budget.total);
   },

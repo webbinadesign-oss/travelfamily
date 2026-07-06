@@ -429,12 +429,18 @@
     /** Plusieurs itinéraires complets à COMPARER avant réservation. */
     planRoadtripOptions: async function (input) {
       if (!api() || !input) return null;
+      var ctrl = new AbortController();
+      var timer = setTimeout(function(){ ctrl.abort(); }, 110000); // 110s (Render cold start + 3 variantes)
       try {
         var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
-        var r = await fetch(api() + '/api/roadtrip/options', { method: 'POST', headers: headers, body: JSON.stringify(input) });
-        if (!r.ok) return null;
+        var r = await fetch(api() + '/api/roadtrip/options', { method: 'POST', headers: headers, body: JSON.stringify(input), signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!r.ok) return { error: 'server', status: r.status };
         return (await r.json()).options || [];
-      } catch (e) { return null; }
+      } catch (e) {
+        clearTimeout(timer);
+        return { error: (e && e.name === 'AbortError') ? 'timeout' : 'network' };
+      }
     },
 
     /** Annulation d'une commande Duffel (devis du remboursement puis confirmation). */

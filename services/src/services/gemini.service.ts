@@ -133,7 +133,7 @@ export const geminiService = {
         const data = await httpRequest<GeminiResponse>(
           `${BASE}/${model}:generateContent`,
           {
-            method: 'POST', provider: 'gemini', timeoutMs: 40_000, retries: 0,
+            method: 'POST', provider: 'gemini', timeoutMs: 55_000, retries: 0,
             query: { key: env.geminiApiKey },
             body: {
               contents: [{ role: 'user', parts: [{ text: prompt }] }],

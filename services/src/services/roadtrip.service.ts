@@ -105,12 +105,12 @@ Les 3 variantes doivent être VRAIMENT différentes :
 
 Contraintes : étapes de route raisonnables (idéalement <4-5h/jour), nuits bien réparties. Si "avion + voiture", indique l'aéroport (airportIata) des villes qui en ont un.
 
-Réponds STRICTEMENT en JSON, sans texte autour :
-{"variants":[{"strategy":"eco","label":"Le plus économique","angle":"phrase qui résume l'esprit","title":"...","stops":[{"city":"Porto","airportIata":"OPO|null","nights":2,"summary":"phrase","days":[{"title":"...","items":["v1","v2","v3"]}],"hotels":[{"tier":"éco","name":"...","pricePerNight":65},{"tier":"confort","name":"...","pricePerNight":105},{"tier":"premium","name":"...","pricePerNight":175}]}],"notes":["conseil"]}, {...balanced...}, {...comfort...}]}
-Prix hôtels/nuit réalistes pour la région et la saison. Toujours 3 tiers d'hôtel par ville.`;
+Réponds STRICTEMENT en JSON compact, sans texte autour. Sois CONCIS : max 2 items par jour, phrases courtes.
+{"variants":[{"strategy":"eco","label":"Le plus économique","angle":"phrase courte","title":"...","stops":[{"city":"Porto","airportIata":"OPO|null","nights":2,"summary":"phrase courte","days":[{"title":"...","items":["v1","v2"]}],"hotels":[{"tier":"éco","name":"...","pricePerNight":65},{"tier":"confort","name":"...","pricePerNight":105},{"tier":"premium","name":"...","pricePerNight":175}]}],"notes":["conseil"]}, {...balanced...}, {...comfort...}]}
+Prix hôtels/nuit réalistes. Toujours 3 tiers d'hôtel par ville. Reste bref pour tenir dans la réponse.`;
 
   try {
-    let j = (await withTimeout(geminiService.generateJSON(prompt), 28000, null)) as any;
+    let j = (await withTimeout(geminiService.generateJSON(prompt), 48000, null)) as any;
     let arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
     // Fallback: if Gemini is rate-limited (429) or returns nothing, use OpenAI.
     if (!arr.length) {

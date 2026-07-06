@@ -15,7 +15,7 @@ const PlanBody = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   travelers: z.coerce.number().int().min(1).max(12),
   mode: z.enum(['fly-drive', 'road']),
-  originIata: z.string().length(3).optional(),
+  originIata: z.string().min(3).max(4).optional(),
 });
 
 /** POST /api/roadtrip/plan — generate a full multi-stop road-trip roadbook. */

@@ -12,17 +12,19 @@ function hm(min){ const h=Math.floor(min/60), m=Math.round(min%60); return h?`${
 /* ---- Formulaire de génération ---- */
 function RoadtripForm({ onPlan, busy }){
   const PRE = (typeof window!=='undefined' && window.__TF_RT_PREFILL) || {};
-  const [origin,setOrigin]=React.useState(()=>{ try{ return PRE.origin||localStorage.getItem('tf_home_addr')||''; }catch(e){ return PRE.origin||''; } });
-  const [region,setRegion]=React.useState('');
-  const [must,setMust]=React.useState('');
-  const [start,setStart]=React.useState('');
-  const [end,setEnd]=React.useState('');
-  const [pax,setPax]=React.useState(PRE.travelers||2);
-  const [mode,setMode]=React.useState('fly-drive');
-  const [oIata,setOIata]=React.useState(()=>{ try{ return localStorage.getItem('tf_pref_origin_iata')||'MPL'; }catch(e){ return 'MPL'; } });
-  const AIRPORTS=[['MPL','Montpellier'],['CDG','Paris CDG'],['ORY','Paris Orly'],['MRS','Marseille'],['LYS','Lyon'],['TLS','Toulouse'],['NCE','Nice'],['BOD','Bordeaux'],['NTE','Nantes'],['BCN','Barcelone'],['GVA','Genève'],['BRU','Bruxelles']];
+  const SAVED = (()=>{ try{ return JSON.parse(localStorage.getItem('tf_rt_form')||'null')||{}; }catch(e){ return {}; } })();
+  const [origin,setOrigin]=React.useState(SAVED.origin||PRE.origin||'');
+  const [region,setRegion]=React.useState(SAVED.region||'');
+  const [must,setMust]=React.useState(SAVED.must||'');
+  const [start,setStart]=React.useState(SAVED.start||'');
+  const [end,setEnd]=React.useState(SAVED.end||'');
+  const [pax,setPax]=React.useState(SAVED.pax||PRE.travelers||2);
+  const [mode,setMode]=React.useState(SAVED.mode||'fly-drive');
+  const [oIata,setOIata]=React.useState(SAVED.oIata||'AUTO');
+  const AIRPORTS=[['AUTO','✨ Auto — le moins cher (Webbina compare)'],['MPL','Montpellier'],['CDG','Paris CDG'],['ORY','Paris Orly'],['MRS','Marseille'],['LYS','Lyon'],['TLS','Toulouse'],['NCE','Nice'],['BOD','Bordeaux'],['NTE','Nantes'],['BCN','Barcelone'],['GVA','Genève'],['BRU','Bruxelles']];
   function submit(){
     if(region.trim().length<2||origin.trim().length<2) return;
+    try{ localStorage.setItem('tf_rt_form', JSON.stringify({ origin, region, must, start, end, pax, mode, oIata })); }catch(e){}
     onPlan({
       origin:origin.trim(), region:region.trim(),
       mustSee: must.split(',').map(s=>s.trim()).filter(Boolean),
@@ -42,8 +44,10 @@ function RoadtripForm({ onPlan, busy }){
       {mode==='fly-drive' && (
         <>
           <label className="rt-lbl">Aéroport de départ</label>
-          <select className="rt-in" value={oIata} onChange={e=>{ setOIata(e.target.value); try{ localStorage.setItem('tf_pref_origin_iata', e.target.value); }catch(_){} }}>
-            {AIRPORTS.map(a=><option key={a[0]} value={a[0]}>{a[1]} ({a[0]})</option>)}
+          <select className="rt-in" value={oIata} onChange={e=>setOIata(e.target.value)}>
+            {AIRPORTS.map(a=><option key={a[0]} value={a[0]}>{a[0]==='AUTO'?a[1]:a[1]+' ('+a[0]+')'}</option>)}
+          </select>
+          <div className="micro" style={{ color:'var(--text-muted)', marginTop:4 }}>Pas sûr d'où partir ? Laissez « Auto » : Webbina compare les aéroports et trouve le moins cher.</div>
           </select>
         </>
       )}

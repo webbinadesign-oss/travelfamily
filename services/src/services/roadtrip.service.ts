@@ -159,15 +159,20 @@ async function enrichVariant(
     if (leg) { stops[i]!.driveFromPrev = { from, to, durationMin: leg.durationMin, distanceKm: leg.distanceKm, real: true }; drivingTotalKm += leg.distanceKm; }
   }
 
-  // 2) Cheapest flight (fly-drive) across candidate airports (cached, PARALLEL).
+  // 2) Cheapest flight (fly-drive) — compare arrival airports AND, if origin is
+  //    "AUTO", several candidate departure airports to find the cheapest overall.
   let flight: RoadTripPlan['flight'];
   if (input.mode === 'fly-drive' && input.originIata) {
-    const candidates = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 3);
-    const fares = await Promise.all(candidates.map((arr) => cachedFare(fareCache, input.originIata!, arr, input.startDate, input.endDate).then((p) => ({ arr, p }))));
-    let best: { arr: string; price: number } | null = null;
-    for (const { arr, p } of fares) if (p != null && (!best || p < best.price)) best = { arr, price: p };
-    if (best) flight = { origin: input.originIata, arrival: best.arr, price: best.price * pax, currency, real: true, airport: best.arr };
-    else if (candidates.length) flight = { origin: input.originIata, arrival: candidates[0]!, price: 0, currency, real: false, airport: candidates[0]! };
+    const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 3);
+    const AUTO_ORIGINS = ['CDG', 'ORY', 'BCN', 'MRS', 'LYS'];
+    const origins = input.originIata === 'AUTO' ? AUTO_ORIGINS : [input.originIata];
+    const pairs: Array<{ o: string; a: string }> = [];
+    for (const o of origins) for (const a of arrivals) pairs.push({ o, a });
+    const fares = await Promise.all(pairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, input.endDate).then((price) => ({ ...p, price }))));
+    let best: { o: string; a: string; price: number } | null = null;
+    for (const f of fares) if (f.price != null && (!best || f.price < best.price)) best = { o: f.o, a: f.a, price: f.price };
+    if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a };
+    else if (arrivals.length) flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]! };
   }
 
   // 3) Car rental estimate by strategy.

@@ -39,13 +39,14 @@ export interface RoadTripPlan {
   endDate?: string;
   travelers: number;
   mode: 'fly-drive' | 'road';
-  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string };
+  flight?: { origin: string; arrival: string; return?: string; price: number; currency: string; real: boolean; airport: string; lowcost?: boolean; note?: string };
+  access?: { mode: string; label: string; durationMin: number; cost: number; currency: string; bookUrl?: string; note?: string; real: boolean };
   car?: { days: number; perDay: number; total: number; category: string; bookUrl: string };
   stops: RoadStop[];
   drivingTotalKm: number;
   fuelEstimate?: { amount: number; currency: string };
   tollsEstimate?: { amount: number; currency: string };
-  budget: { flights: number; car: number; hotels: number; fuel: number; tolls: number; activities: number; total: number; perPerson: number; currency: string };
+  budget: { flights: number; car: number; hotels: number; fuel: number; tolls: number; activities: number; access: number; total: number; perPerson: number; currency: string };
   notes: string[];
   source: 'webbina';
   generatedAt: string;
@@ -131,6 +132,77 @@ Prix hôtels/nuit réalistes pour la région et la saison. Toujours 3 tiers d'h�
 }
 
 const HOTEL_FOR: Record<string, 'éco' | 'confort' | 'premium'> = { eco: 'éco', balanced: 'confort', comfort: 'premium' };
+
+const AIRPORT_LABEL: Record<string, string> = {
+  MPL: 'Aéroport de Montpellier', MRS: 'Aéroport de Marseille', TLS: 'Aéroport de Toulouse',
+  NCE: 'Aéroport de Nice', LYS: 'Aéroport de Lyon Saint-Exupéry', BOD: 'Aéroport de Bordeaux',
+  PGF: 'Aéroport de Perpignan', BCN: 'Aéroport de Barcelone', GRO: 'Aéroport de Gérone',
+  GVA: 'Aéroport de Genève', NTE: 'Aéroport de Nantes', CDG: 'Aéroport Paris Charles de Gaulle',
+  ORY: 'Aéroport Paris Orly', BRU: 'Aéroport de Bruxelles',
+};
+
+/* Airports with coords → pick those within ~3h drive of the traveller's home. */
+const AIRPORTS_GEO: Array<{ iata: string; lat: number; lng: number }> = [
+  { iata: 'MPL', lat: 43.58, lng: 3.96 }, { iata: 'MRS', lat: 43.44, lng: 5.22 },
+  { iata: 'TLS', lat: 43.63, lng: 1.37 }, { iata: 'NCE', lat: 43.66, lng: 7.21 },
+  { iata: 'LYS', lat: 45.72, lng: 5.08 }, { iata: 'BOD', lat: 44.83, lng: -0.72 },
+  { iata: 'PGF', lat: 42.74, lng: 2.87 }, { iata: 'BCN', lat: 41.30, lng: 2.08 },
+  { iata: 'GRO', lat: 41.90, lng: 2.76 }, { iata: 'GVA', lat: 46.24, lng: 6.11 },
+  { iata: 'NTE', lat: 47.15, lng: -1.61 }, { iata: 'CDG', lat: 49.01, lng: 2.55 },
+  { iata: 'ORY', lat: 48.72, lng: 2.38 }, { iata: 'BRU', lat: 50.90, lng: 4.48 },
+  { iata: 'MRS', lat: 43.44, lng: 5.22 },
+];
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+/** Nearest airports to a home city (geocoded), within ~300 km (≈3h drive). */
+async function nearestAirports(home: string): Promise<string[]> {
+  try {
+    const g = await googleMapsService.geocode(home);
+    if (g && g.lat != null && g.lng != null) {
+      const ranked = AIRPORTS_GEO
+        .map((ap) => ({ iata: ap.iata, km: haversineKm(g, ap) }))
+        .filter((x) => x.km <= 300)
+        .sort((a, b) => a.km - b.km);
+      const uniq: string[] = [];
+      for (const r of ranked) if (!uniq.includes(r.iata)) uniq.push(r.iata);
+      if (uniq.length) return uniq.slice(0, 3);
+    }
+  } catch { /* fall through */ }
+  return ['MPL', 'MRS', 'TLS']; // sensible default (south of France)
+}
+
+/** Home → departure airport access. hasCar → parking; else transit/bus/carpool.
+ *  Cached by (home|airport|hasCar) so it's computed once across variants. */
+type AccessCache = Map<string, RoadTripPlan['access']>;
+async function airportAccess(home: string, iata: string, hasCar: boolean, pax: number, cache: AccessCache): Promise<RoadTripPlan['access']> {
+  const key = `${home}|${iata}|${hasCar}`.toLowerCase();
+  if (cache.has(key)) return cache.get(key)!;
+  let result: RoadTripPlan['access'];
+  try {
+    const hub = AIRPORT_LABEL[iata] || `aéroport ${iata}`;
+    const { options } = await itineraryService.toHub({ origin: home, hub, profile: { pax } });
+    let pick: typeof options[0] | undefined;
+    if (hasCar) pick = options.find((o) => o.id === 'parking') || options.find((o) => o.mode === 'DRIVE');
+    else {
+      const ground = options.filter((o) => o.id !== 'parking' && o.mode !== 'DRIVE');
+      pick = ground.filter((o) => o.cost).sort((a, b) => (a.cost!.amount) - (b.cost!.amount))[0] || ground[0];
+    }
+    if (pick) {
+      result = {
+        mode: pick.mode, label: pick.label.replace(/ · le plus.*$/, ''),
+        durationMin: pick.durationMin, cost: (pick.cost && pick.cost.amount) || 0,
+        currency: (pick.cost && pick.cost.currency) || 'EUR',
+        ...(pick.bookUrl ? { bookUrl: pick.bookUrl } : {}), ...(pick.note ? { note: pick.note } : {}),
+        real: true,
+      };
+    }
+  } catch { /* optional */ }
+  cache.set(key, result);
+  return result;
+}
 const CAR_FOR: Record<string, { cat: string; perDay: number }> = {
   eco: { cat: 'Économique', perDay: 42 }, balanced: { cat: 'Compacte', perDay: 55 }, comfort: { cat: 'SUV / Confort', perDay: 78 },
 };
@@ -138,7 +210,7 @@ const CAR_FOR: Record<string, { cat: string; perDay: number }> = {
 /** Enrich one variant skeleton with real driving legs, cheapest flight, budget. */
 async function enrichVariant(
   v: { strategy: string; label: string; angle: string; title: string; stops: RoadStop[]; notes: string[] },
-  input: RoadTripInput, legCache: LegCache, fareCache: FareCache,
+  input: RoadTripInput, legCache: LegCache, fareCache: FareCache, accessCache: AccessCache,
 ): Promise<RoadTripPlan> {
   const stops = v.stops;
   const pax = Math.max(1, input.travelers);
@@ -163,16 +235,21 @@ async function enrichVariant(
   //    "AUTO", several candidate departure airports to find the cheapest overall.
   let flight: RoadTripPlan['flight'];
   if (input.mode === 'fly-drive' && input.originIata) {
-    const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 3);
-    const AUTO_ORIGINS = ['CDG', 'ORY', 'BCN', 'MRS', 'LYS'];
-    const origins = input.originIata === 'AUTO' ? AUTO_ORIGINS : [input.originIata];
+    const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 2);
+    const origins = input.originIata === 'AUTO' ? (input.originAirports || ['MPL', 'MRS', 'TLS']) : [input.originIata];
     const pairs: Array<{ o: string; a: string }> = [];
     for (const o of origins) for (const a of arrivals) pairs.push({ o, a });
     const fares = await Promise.all(pairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, input.endDate).then((price) => ({ ...p, price }))));
     let best: { o: string; a: string; price: number } | null = null;
     for (const f of fares) if (f.price != null && (!best || f.price < best.price)) best = { o: f.o, a: f.a, price: f.price };
-    if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a };
+    if (best) flight = { origin: best.o, arrival: best.a, price: best.price * pax, currency, real: true, airport: best.a, lowcost: true, note: 'Tarif de base (souvent low-cost) : bagage cabine généralement inclus, bagage en soute en option — à ajouter au moment de la réservation. Conditions de modification/annulation selon la compagnie.' };
     else if (arrivals.length) flight = { origin: origins[0]!, arrival: arrivals[0]!, price: 0, currency, real: false, airport: arrivals[0]! };
+  }
+
+  // 2b) Home → departure airport access (parking if personal car, else transit/bus/carpool).
+  let access: RoadTripPlan['access'];
+  if (input.mode === 'fly-drive' && flight) {
+    access = await airportAccess(input.origin, flight.origin, !!input.hasCar, pax, accessCache);
   }
 
   // 3) Car rental estimate by strategy.
@@ -206,7 +283,8 @@ async function enrichVariant(
 
   const flights = flight?.price || 0;
   const carTotal = car?.total || 0;
-  const total = flights + carTotal + hotelsBudget + fuel + tolls + activities;
+  const accessCost = access?.cost || 0;
+  const total = flights + carTotal + hotelsBudget + fuel + tolls + activities + accessCost;
 
   return {
     strategy: v.strategy, label: v.label, angle: v.angle,
@@ -214,12 +292,12 @@ async function enrichVariant(
     ...(input.startDate ? { startDate: input.startDate } : {}),
     ...(input.endDate ? { endDate: input.endDate } : {}),
     travelers: pax, mode: input.mode, hotelTier: chosenTier,
-    ...(flight ? { flight } : {}), ...(car ? { car } : {}),
+    ...(flight ? { flight } : {}), ...(car ? { car } : {}), ...(access ? { access } : {}),
     stops, drivingTotalKm: Math.round(roadKm),
     fuelEstimate: { amount: fuel, currency }, tollsEstimate: { amount: tolls, currency },
     budget: {
       flights: Math.round(flights), car: Math.round(carTotal), hotels: Math.round(hotelsBudget),
-      fuel, tolls, activities: Math.round(activities),
+      fuel, tolls, activities: Math.round(activities), access: Math.round(accessCost),
       total: Math.round(total), perPerson: Math.round(total / pax), currency,
     },
     notes: v.notes, source: 'webbina', generatedAt: new Date().toISOString(),
@@ -235,6 +313,8 @@ export interface RoadTripInput {
   travelers: number;
   mode: 'fly-drive' | 'road';
   originIata?: string;         // nearest airport to home (for fly-drive)
+  originAirports?: string[];   // resolved candidate departure airports (AUTO)
+  hasCar?: boolean;            // personal car? → parking, else transit/bus/carpool
 }
 
 export const roadtripService = {
@@ -242,10 +322,15 @@ export const roadtripService = {
   async options(input: RoadTripInput): Promise<RoadTripPlan[]> {
     const variants = await generateVariants(input);
     if (!variants.length) return [];
+    // Resolve nearest departure airports ONCE (AUTO = airports ≤3h from home).
+    if (input.mode === 'fly-drive' && input.originIata === 'AUTO') {
+      input = { ...input, originAirports: await nearestAirports(input.origin) };
+    }
     const legCache: LegCache = new Map();
     const fareCache: FareCache = new Map();
+    const accessCache: AccessCache = new Map();
     // Enrich all variants IN PARALLEL (major speedup on cold Render).
-    const settled = await Promise.allSettled(variants.map((v) => enrichVariant(v, input, legCache, fareCache)));
+    const settled = await Promise.allSettled(variants.map((v) => enrichVariant(v, input, legCache, fareCache, accessCache)));
     const plans: RoadTripPlan[] = [];
     for (const s of settled) { if (s.status === 'fulfilled') plans.push(s.value); else logger.warn('roadtrip enrich failed', { err: String(s.reason) }); }
     // Cheapest first.

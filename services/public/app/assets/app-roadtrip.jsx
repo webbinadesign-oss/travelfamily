@@ -21,16 +21,17 @@ function RoadtripForm({ onPlan, busy }){
   const [pax,setPax]=React.useState(SAVED.pax||PRE.travelers||2);
   const [mode,setMode]=React.useState(SAVED.mode||'fly-drive');
   const [oIata,setOIata]=React.useState(SAVED.oIata||'AUTO');
+  const [hasCar,setHasCar]=React.useState(SAVED.hasCar!=null?SAVED.hasCar:true);
   const AIRPORTS=[['AUTO','✨ Auto — le moins cher (Webbina compare)'],['MPL','Montpellier'],['CDG','Paris CDG'],['ORY','Paris Orly'],['MRS','Marseille'],['LYS','Lyon'],['TLS','Toulouse'],['NCE','Nice'],['BOD','Bordeaux'],['NTE','Nantes'],['BCN','Barcelone'],['GVA','Genève'],['BRU','Bruxelles']];
   function submit(){
     if(region.trim().length<2||origin.trim().length<2) return;
-    try{ localStorage.setItem('tf_rt_form', JSON.stringify({ origin, region, must, start, end, pax, mode, oIata })); }catch(e){}
+    try{ localStorage.setItem('tf_rt_form', JSON.stringify({ origin, region, must, start, end, pax, mode, oIata, hasCar })); }catch(e){}
     onPlan({
       origin:origin.trim(), region:region.trim(),
       mustSee: must.split(',').map(s=>s.trim()).filter(Boolean),
       startDate:start||undefined, endDate:end||undefined,
       travelers:pax, mode,
-      ...(mode==='fly-drive'?{ originIata:oIata }:{}),
+      ...(mode==='fly-drive'?{ originIata:oIata, hasCar }:{}),
     });
   }
   return (
@@ -48,7 +49,12 @@ function RoadtripForm({ onPlan, busy }){
             {AIRPORTS.map(a=><option key={a[0]} value={a[0]}>{a[0]==='AUTO'?a[1]:a[1]+' ('+a[0]+')'}</option>)}
           </select>
           <div className="micro" style={{ color:'var(--text-muted)', marginTop:4 }}>Pas sûr d'où partir ? Laissez « Auto » : Webbina compare les aéroports et trouve le moins cher.</div>
-          </select>
+          <label className="rt-lbl">Pour rejoindre l'aéroport</label>
+          <div className="seg2">
+            <button className={hasCar?'on':''} onClick={()=>setHasCar(true)}><Icon n="car" size={14} /> J'ai une voiture</button>
+            <button className={!hasCar?'on':''} onClick={()=>setHasCar(false)}><Icon n="bus" size={14} /> Sans voiture</button>
+          </div>
+          <div className="micro" style={{ color:'var(--text-muted)', marginTop:4 }}>{hasCar?'Webbina calcule le trajet + le parking aéroport.':'Webbina compare transports, bus et BlaBlaCar.'}</div>
         </>
       )}
       <label className="rt-lbl">Destination / région</label>
@@ -92,8 +98,14 @@ function RoadbookView({ plan, onReset, book }){
           <h4 style={{ fontSize:14, marginBottom:8 }}>Transport principal</h4>
           {plan.flight && (
             <div className="rt-line"><div className="rt-line-ic"><Icon n="plane" size={16} /></div>
-              <div style={{ flex:1 }}><b>Vol {plan.flight.origin} → {plan.flight.arrival}</b><div className="micro">{plan.flight.real?'Meilleur tarif trouvé (A/R, tous voyageurs)':'Aéroport conseillé'}</div></div>
+              <div style={{ flex:1 }}><b>Vol {plan.flight.origin} → {plan.flight.arrival}{plan.flight.lowcost?' · low-cost':''}</b><div className="micro">{plan.flight.real?'Meilleur tarif trouvé (A/R, tous voyageurs)':'Aéroport conseillé'}</div>{plan.flight.note&&<div className="micro" style={{ marginTop:3, color:'var(--text-muted)', lineHeight:1.45 }}>{plan.flight.note}</div>}</div>
               <b>{plan.flight.real?fmt(plan.flight.price)+' '+cur:'—'}</b>
+            </div>
+          )}
+          {plan.access && (
+            <div className="rt-line"><div className="rt-line-ic"><Icon n={plan.access.mode==='DRIVE'?'car':'bus'} size={16} /></div>
+              <div style={{ flex:1 }}><b>Accès aéroport — {plan.access.label}</b><div className="micro">{Math.round(plan.access.durationMin)} min{plan.access.note?' · '+plan.access.note:''}</div></div>
+              <b>{plan.access.cost?fmt(plan.access.cost)+' '+cur:'—'}</b>
             </div>
           )}
           {plan.car && (
@@ -148,7 +160,7 @@ function RoadbookView({ plan, onReset, book }){
       {/* Budget détaillé */}
       <div className="card card--pad">
         <h4 style={{ fontSize:14, marginBottom:8 }}>Budget détaillé</h4>
-        {[['Vols',b.flights],['Location voiture',b.car],['Hôtels',b.hotels],['Carburant',b.fuel],['Péages',b.tolls],['Visites & activités',b.activities]].filter(r=>r[1]>0).map((r,i)=>(
+        {[['Vols',b.flights],['Accès aéroport',b.access],['Location voiture',b.car],['Hôtels',b.hotels],['Carburant',b.fuel],['Péages',b.tolls],['Visites & activités',b.activities]].filter(r=>r[1]>0).map((r,i)=>(
           <div key={i} className="rt-brow"><span>{r[0]}</span><b>{fmt(r[1])} {cur}</b></div>
         ))}
         <div className="rt-brow rt-btotal"><span>Total</span><b>{fmt(b.total)} {cur}</b></div>
@@ -231,12 +243,14 @@ function OptionsCompare({ options, onPick, onReset }){
           </div>
           {o.angle && <p className="micro" style={{ margin:'8px 0 0', lineHeight:1.5 }}>{o.angle}</p>}
           <div className="opt-route">{o.stops.map((s,k)=>(<React.Fragment key={k}>{k>0 && <Icon n="chevronRight" size={12} style={{ color:'var(--text-muted)' }} />}<span>{s.city}</span></React.Fragment>))}</div>
+          {o.flight && <div className="opt-flight"><Icon n="plane" size={13} /> <b>{o.flight.origin} → {o.flight.arrival}</b>{o.flight.real?<span> · {fmt(o.flight.price)} {cur} <span className="micro">(A/R, {o.travelers} pers.)</span>{o.flight.lowcost&&<span className="opt-lc">low-cost</span>}</span>:<span className="micro"> · aéroport conseillé</span>}</div>}
+          {o.access && <div className="opt-flight"><Icon n={o.access.mode==='DRIVE'?'car':'bus'} size={13} /> <b>Accès aéroport</b> <span className="micro">· {o.access.label}{o.access.cost?` · ~${fmt(o.access.cost)} ${cur}`:''}</span></div>}
           <div className="opt-mini">
-            {o.flight && <span><Icon n="plane" size={12} /> {o.flight.real?fmt(o.flight.price)+' '+cur:'vol'}</span>}
             {o.car && <span><Icon n="car" size={12} /> {o.car.category}</span>}
             <span><Icon n="star" size={12} /> hôtels {o.hotelTier}</span>
             {o.drivingTotalKm>0 && <span><Icon n="route" size={12} /> {fmt(o.drivingTotalKm)} km</span>}
           </div>
+          <div className="opt-incl">Inclus : accès aéroport · vol{o.car?' · voiture':''} · hôtels ({o.stops.reduce((s,x)=>s+x.nights,0)} nuits) · visites · carburant/péages</div>
           <button className="btn btn--primary btn--block btn--sm" style={{ marginTop:12 }} onClick={()=>onPick(o)}>Voir le détail & choisir <Icon n="arrowRight" size={15} /></button>
         </div>
       ); })}

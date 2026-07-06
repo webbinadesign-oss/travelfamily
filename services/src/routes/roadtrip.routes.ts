@@ -16,6 +16,7 @@ const PlanBody = z.object({
   travelers: z.coerce.number().int().min(1).max(12),
   mode: z.enum(['fly-drive', 'road']),
   originIata: z.string().min(3).max(4).optional(),
+  hasCar: z.coerce.boolean().optional(),
 });
 
 /** POST /api/roadtrip/plan — generate a full multi-stop road-trip roadbook. */

@@ -54,7 +54,9 @@ function CarnetVoyage({ plan, trip, go }){
         {(p.flight||p.car) && (
           <div className="cv-block">
             <h2 className="cv-h2">Transport</h2>
-            {p.flight && <div className="cv-row"><b>✈️ Vol {p.flight.origin} → {p.flight.arrival}</b><span>{p.flight.real?cvFmt(p.flight.price)+' '+cur:'à confirmer'}</span></div>}
+            {p.flight && <div className="cv-row"><b>✈️ Vol {p.flight.origin} → {p.flight.arrival}{p.flight.lowcost?' · low-cost':''}</b><span>{p.flight.real?cvFmt(p.flight.price)+' '+cur:'à confirmer'}</span></div>}
+            {p.flight && p.flight.note && <div className="cv-note" style={{ marginTop:2 }}>{p.flight.note}</div>}
+            {p.access && <div className="cv-row"><b>{p.access.mode==='DRIVE'?'🅿️':'🚌'} Accès aéroport — {p.access.label}</b><span>{p.access.cost?cvFmt(p.access.cost)+' '+cur:'—'}</span></div>}
             {p.car && <div className="cv-row"><b>🚗 Location {p.car.category}</b><span>{p.car.days} j × {p.car.perDay} {cur} = {cvFmt(p.car.total)} {cur}</span></div>}
           </div>
         )}

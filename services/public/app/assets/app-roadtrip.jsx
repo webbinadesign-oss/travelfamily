@@ -397,6 +397,7 @@ function RoadbookTunnel({ plan, go, book, onReset }){
   const flyDrive = plan.mode==='fly-drive';
 
   const [tiers,setTiers]=React.useState(()=>plan.stops.map(()=>plan.hotelTier||'confort'));
+  const [picks,setPicks]=React.useState(()=>plan.stops.map(()=>null)); // real hotel per city
   const [carCat,setCarCat]=React.useState(plan.car?plan.car.category:'Compacte');
   const [acts,setActs]=React.useState({});          // "ci:ai" -> true
   const [hotelFilter,setHotelFilter]=React.useState('tous'); // tous|éco|confort|premium
@@ -410,7 +411,8 @@ function RoadbookTunnel({ plan, go, book, onReset }){
 
   // ---- budget dérivé des choix ----
   const hotelOf=(s,ti)=> (s.hotels && (s.hotels.find(h=>h.tier===ti)||s.hotels[0])) || null;
-  const hotelsTotal=plan.stops.reduce((sum,s,i)=>{ const h=hotelOf(s,tiers[i]); return sum+(h?h.pricePerNight*s.nights*rooms:0); },0);
+  const nightlyOf=(i)=>{ if(picks[i]) return picks[i].pricePerNight; const h=hotelOf(plan.stops[i],tiers[i]); return h?h.pricePerNight:90; };
+  const hotelsTotal=plan.stops.reduce((sum,s,i)=>sum+nightlyOf(i)*s.nights*rooms,0);
   const carPerDay=(CAR_CATS.find(c=>c[0]===carCat)||[,55])[1];
   const carTotal=flyDrive?carPerDay*days:0;
   const actCount=Object.values(acts).filter(Boolean).length;
@@ -529,6 +531,20 @@ function RoadbookTunnel({ plan, go, book, onReset }){
       {/* ÉTAPE HÔTELS */}
       {cur_id==='Hôtels' && (
         <div className="card card--pad">
+          <h4 style={{ fontSize:15, marginBottom:8 }}>Hôtels par étape</h4>
+          {plan.stops.map((s,i)=>(
+            <HotelPicker key={i} idx={i} city={s.city} region={plan.region} nights={s.nights} rooms={rooms} cur={cur}
+              tierHotels={s.hotels||[]} tier={tiers[i]} pick={picks[i]}
+              onTier={(t)=>{ setTier(i,t); setPicks(p=>{ const n=[...p]; n[i]=null; return n; }); }}
+              onPick={(h)=>setPicks(p=>{ const n=[...p]; n[i]=h; return n; })} />
+          ))}
+          <div className="micro" style={{ color:'var(--text-muted)', marginTop:8 }}>Hôtels réels (Google) × {rooms} chambre{rooms>1?'s':''}. Prix estimés selon la catégorie ; tarifs & prestations exacts (petit-déj, chambre) dès l'activation des partenaires.</div>
+        </div>
+      )}
+
+      {/* (ancien bloc hôtels remplacé par HotelPicker) */}
+      {false && (
+        <div className="card card--pad">
           <div className="row between" style={{ alignItems:'center', marginBottom:8 }}>
             <h4 style={{ fontSize:15 }}>Hôtels par étape</h4>
             <select className="tnl-filter" value={hotelFilter} onChange={e=>setHotelFilter(e.target.value)}>
@@ -587,6 +603,71 @@ function RoadbookTunnel({ plan, go, book, onReset }){
         <button className="btn btn--ghost btn--sm" style={{ flex:1 }} onClick={()=>{ window.__TF_CARNET_PLAN={ ...plan, hotelTierPerCity:tiers }; go('carnet'); }}><Icon n="download" size={14} /> Aperçu carnet</button>
         <button className="btn btn--ghost btn--sm" style={{ flex:1 }} onClick={onReset}>Autres itinéraires</button>
       </div>
+    </div>
+  );
+}
+
+/* ---- Sélecteur d'hôtel réel (Google Places) + carte + filtres ---- */
+function HotelPicker({ idx, city, region, nights, rooms, cur, tierHotels, tier, pick, onTier, onPick }){
+  const [open,setOpen]=React.useState(false);
+  const [data,setData]=React.useState(null);
+  const [state,setState]=React.useState('idle');
+  const [minRating,setMinRating]=React.useState(0);
+  const [sort,setSort]=React.useState('price');
+  async function load(){
+    if(data||state==='loading') return; setState('loading');
+    try{ const r=window.WebbinaBackend&&WebbinaBackend.cityHotels?await WebbinaBackend.cityHotels(city,region):null; if(r&&r.items&&r.items.length){ setData(r); setState('done'); } else setState('empty'); }
+    catch(e){ setState('empty'); }
+  }
+  function expand(){ setOpen(o=>!o); if(!open) load(); }
+  const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
+  let list=data?data.items.slice():[];
+  if(minRating) list=list.filter(h=>(h.rating||0)>=minRating);
+  list.sort((a,b)=> sort==='rating' ? (b.rating||0)-(a.rating||0) : a.pricePerNight-b.pricePerNight);
+  const mapUrl = data&&api ? api+'/api/map/route.png?points='+encodeURIComponent(city+(region?', '+region:''))+'&size=560x200' : null;
+  const chosenLabel = pick? pick.name : (tier+' (estimation)');
+  const chosenPrice = pick? pick.pricePerNight : (()=>{ const h=(tierHotels.find(x=>x.tier===tier)||tierHotels[0]); return h?h.pricePerNight:90; })();
+  return (
+    <div className="tnl-hstop">
+      <div className="row between" style={{ alignItems:'center' }}>
+        <div><b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>{idx+1}. {city}</b><div className="micro">{nights} nuit{nights>1?'s':''} × {rooms} ch. · {chosenLabel}</div></div>
+        <div style={{ textAlign:'right' }}><b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>{fmt(chosenPrice*nights*rooms)} {cur}</b><div className="micro">{fmt(chosenPrice)} {cur}/nuit</div></div>
+      </div>
+      {/* niveaux estimatifs rapides */}
+      <div className="row gap2" style={{ marginTop:8, flexWrap:'wrap' }}>
+        {tierHotels.map((h,k)=>{ const t=RT_TIERS[h.tier]||RT_TIERS.confort; const sel=!pick&&tier===h.tier; return (
+          <button key={k} className={'tnl-tierchip'+(sel?' sel':'')} onClick={()=>onTier(h.tier)} style={sel?{ borderColor:t.c, color:t.c }:{}}>{h.tier} · {fmt(h.pricePerNight)}{cur}</button>
+        ); })}
+      </div>
+      <button className="tnl-hotels-toggle" onClick={expand}><Icon n="star" size={13} /> {open?'Masquer':'Voir les hôtels réels + carte'} <Icon n="chevronRight" size={14} style={{ transform:open?'rotate(90deg)':'none' }} /></button>
+      {open && (
+        <div style={{ marginTop:8 }}>
+          {state==='loading' && <div className="micro" style={{ padding:8 }}>Recherche des hôtels…</div>}
+          {state==='empty' && <div className="micro" style={{ color:'var(--text-muted)', padding:8 }}>Pas d'hôtels trouvés pour cette ville.</div>}
+          {state==='done' && (
+            <>
+              {mapUrl && <img src={mapUrl} alt="Carte" crossOrigin="anonymous" style={{ width:'100%', borderRadius:'var(--r-md)', border:'1px solid var(--border)', display:'block', marginBottom:8 }} onError={e=>{e.target.style.display='none';}} />}
+              <div className="row gap2" style={{ marginBottom:8, flexWrap:'wrap' }}>
+                <select className="tnl-filter" value={sort} onChange={e=>setSort(e.target.value)}><option value="price">Moins cher</option><option value="rating">Mieux noté</option></select>
+                <select className="tnl-filter" value={minRating} onChange={e=>setMinRating(+e.target.value)}><option value="0">Toutes notes</option><option value="4">★ 4+</option><option value="4.5">★ 4,5+</option></select>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {list.slice(0,8).map((h,k)=>{ const sel=pick&&pick.name===h.name; return (
+                  <button key={k} className={'tnl-rhotel'+(sel?' sel':'')} onClick={()=>onPick(h)}>
+                    {h.photo&&<img src={h.photo} alt="" crossOrigin="anonymous" onError={e=>{e.target.style.display='none';}} />}
+                    <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
+                      <b style={{ fontFamily:'var(--font-display)', fontSize:13 }}>{h.name}</b>
+                      <div className="micro" style={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{h.rating?`★ ${h.rating} (${h.reviews})`:''}{h.address?' · '+h.address:''}</div>
+                    </div>
+                    <div style={{ textAlign:'right', flex:'none' }}><b style={{ fontFamily:'var(--font-display)', fontSize:13 }}>~{fmt(h.pricePerNight)} {cur}</b><div className="micro">/nuit</div></div>
+                  </button>
+                ); })}
+              </div>
+              <div className="micro" style={{ color:'var(--text-muted)', marginTop:6 }}>Prix estimé d'après la catégorie et la note. Tarif ferme + prestations (petit-déj, type de chambre) dès l'activation des partenaires.</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -28,6 +28,27 @@ roadtripRouter.post('/plan', validate(PlanBody, 'body'), asyncHandler(async (req
   res.json(plan);
 }));
 
+/** GET /api/roadtrip/hotels?city=&region= — REAL hotels near a city (Google
+ *  Places): name, rating, address, coords (for the map). Price = estimate by
+ *  rating until Duffel Stays / RateHawk are live. */
+const HotelsQuery = z.object({ city: z.string().min(2).max(80), region: z.string().max(80).optional() });
+roadtripRouter.get('/hotels', validate(HotelsQuery, 'query'), asyncHandler(async (req, res) => {
+  const q = valid<z.infer<typeof HotelsQuery>>(req);
+  const near = await googleMapsService.geocode(`${q.city}${q.region ? ', ' + q.region : ''}`);
+  const places = await googleMapsService.searchPlaces({ query: `hôtel à ${q.city}`, near, radiusKm: 12 });
+  const items = (places || []).filter((p) => p.location && p.location.lat).slice(0, 12).map((p) => {
+    const r = p.rating || 3.5;
+    // Estimate €/night from rating (indicative; real prices come with partners).
+    const est = Math.round(45 + (r - 3) * 55 + (Math.min(p.userRatingsTotal || 0, 2000) / 2000) * 20);
+    return {
+      name: p.name || 'Hôtel', rating: p.rating || null, reviews: p.userRatingsTotal || 0,
+      address: p.address || '', lat: p.location!.lat, lng: p.location!.lng,
+      photo: p.photoUrl || null, pricePerNight: Math.max(40, est),
+    };
+  });
+  res.json({ city: q.city, center: near, items });
+}));
+
 /** POST /api/roadtrip/suggest — light itinerary (cities + things to see, no pricing). */
 roadtripRouter.post('/suggest', validate(PlanBody, 'body'), asyncHandler(async (req, res) => {
   const b = valid<z.infer<typeof PlanBody>>(req);

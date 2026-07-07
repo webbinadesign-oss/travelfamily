@@ -426,6 +426,18 @@
       } catch (e) { return null; }
     },
 
+    /** Vrais hôtels près d'une ville (Google Places) + carte. */
+    cityHotels: async function (city, region) {
+      if (!api() || !city) return null;
+      try {
+        var p = new URLSearchParams({ city: city });
+        if (region) p.set('region', region);
+        var r = await fetch(api() + '/api/roadtrip/hotels?' + p.toString(), { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+
     /** Suggestion d'itinéraire (villes + à voir, sans prix) — pour construire/éditer. */
     suggestRoadtrip: async function (input) {
       if (!api() || !input) return null;

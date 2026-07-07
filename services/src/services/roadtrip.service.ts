@@ -134,7 +134,7 @@ Prix hôtels/nuit réalistes. Toujours 3 tiers d'hôtel par ville. Reste bref po
       stops: (Array.isArray(v.stops) ? v.stops : []).map((s: any) => ({
         city: String(s.city || '').trim(),
         airportIata: s.airportIata && String(s.airportIata).length === 3 ? String(s.airportIata).toUpperCase() : undefined,
-        nights: Math.max(0, num(s.nights, 1)),
+        nights: overrideNights(String(s.city || ''), Math.max(0, num(s.nights, 1))),
         summary: String(s.summary || ''),
         days: Array.isArray(s.days) && s.days.length
           ? s.days.map((d: any) => ({ title: String(d.title || ''), items: (Array.isArray(d.items) ? d.items : []).map((x: any) => String(x)) }))
@@ -375,6 +375,7 @@ export interface RoadTripInput {
   originIata?: string;         // nearest airport to home (for fly-drive)
   originAirports?: string[];   // resolved candidate departure airports (AUTO)
   hasCar?: boolean;            // personal car? → parking, else transit/bus/carpool
+  nightsPerCity?: Array<{ city: string; nights: number }>; // user-edited nights
 }
 
 export const roadtripService = {

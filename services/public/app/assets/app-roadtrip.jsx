@@ -247,7 +247,7 @@ function RoadtripScreen({ go, book }){
   }
   // Step 2 → generate priced options from the validated stops.
   async function onValidate(stops){
-    const input={ ...lastInput.current, mustSee: stops.map(s=>s.city) };
+    const input={ ...lastInput.current, mustSee: stops.map(s=>s.city), nightsPerCity: stops.map(s=>({ city:s.city, nights:s.nights||2 })) };
     lastInput.current=input;
     setBusy(true); setErr(''); setBuilder(null);
     try{
@@ -288,6 +288,12 @@ function ItineraryBuilder({ data, region, onValidate }){
   const [stops,setStops]=React.useState(data.stops);
   const [add,setAdd]=React.useState('');
   const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
+  const inp=data.input||{};
+  // Durée du séjour depuis les dates (si fournies).
+  const tripDays=(()=>{ try{ if(inp.startDate&&inp.endDate){ const d=Math.round((new Date(inp.endDate)-new Date(inp.startDate))/86400000); return d>0?d:null; } }catch(e){} return null; })();
+  const totalNights=stops.reduce((s,x)=>s+(x.nights||0),0);
+  const over = tripDays!=null && totalNights>tripDays;
+  const under = tripDays!=null && totalNights<tripDays;
   const mapUrl = api && stops.length ? api+'/api/map/route.png?points='+encodeURIComponent(stops.map(s=>s.city).join('|'))+(region?('&region='+encodeURIComponent(region)):'') : null;
   function remove(i){ setStops(p=>p.filter((_,k)=>k!==i)); }
   function addCity(){ const c=add.trim(); if(c.length<2) return; setStops(p=>[...p,{ city:c, summary:'', see:[], nights:2 }]); setAdd(''); }
@@ -320,7 +326,13 @@ function ItineraryBuilder({ data, region, onValidate }){
           <button className="btn btn--secondary btn--sm" onClick={addCity}><Icon n="plus" size={16} /> Ajouter</button>
         </div>
       </div>
-      <button className="btn btn--cta btn--block" disabled={stops.length<1} onClick={()=>onValidate(stops)}>
+      {tripDays!=null && (
+        <div className={'tnl-nights'+(over?' over':under?' under':' ok')}>
+          <Icon n={over?'info':'check'} size={15} />
+          <span>{totalNights} nuit{totalNights>1?'s':''} réparties sur <b>{tripDays} nuit{tripDays>1?'s':''}</b> de séjour{over?` — ${totalNights-tripDays} de trop, réduisez.`:under?` — il en reste ${tripDays-totalNights} à placer.`:' — parfait ✓'}</span>
+        </div>
+      )}
+      <button className="btn btn--cta btn--block" disabled={stops.length<1||over} onClick={()=>onValidate(stops)}>
         <Icon n="check" size={18} /> Valider — chercher les meilleurs prix
       </button>
     </div>

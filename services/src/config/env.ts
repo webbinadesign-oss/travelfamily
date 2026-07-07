@@ -67,6 +67,7 @@ export interface Env {
 
   travelpayoutsToken: string;
   travelpayoutsMarker: string;
+  serpapiKey: string;          // SerpApi (Google Flights) — vrais prix low-cost
 
   stripeSecretKey: string;
   stripePublishableKey: string;
@@ -132,6 +133,7 @@ export const env: Env = {
 
   travelpayoutsToken: str('TRAVELPAYOUTS_TOKEN'),
   travelpayoutsMarker: str('TRAVELPAYOUTS_MARKER', '741019'),
+  serpapiKey: str('SERPAPI_KEY'),
 
   stripeSecretKey: str('STRIPE_SECRET_KEY'),
   stripePublishableKey: str('STRIPE_PUBLISHABLE_KEY'),
@@ -165,6 +167,7 @@ export function integrationStatus(): Record<string, boolean> {
     booking: Boolean(env.bookingApiKey),
     exchangeRate: Boolean(env.exchangeRateApiKey),
     travelpayouts: Boolean(env.travelpayoutsToken),
+    serpapi: Boolean(env.serpapiKey),
     stripe: Boolean(env.stripeSecretKey),
   };
 }

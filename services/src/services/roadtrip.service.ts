@@ -16,6 +16,7 @@
 import { geminiService } from './gemini.service.js';
 import { openaiService } from './openai.service.js';
 import { travelpayoutsService } from './travelpayouts.service.js';
+import { serpFlightsService } from './serpflights.service.js';
 import { itineraryService } from './itinerary.service.js';
 import { logger } from '../lib/logger.js';
 
@@ -76,10 +77,15 @@ async function cachedLeg(cache: LegCache, from: string, to: string): Promise<{ d
 async function cachedFare(cache: FareCache, origin: string, dest: string, start?: string, end?: string): Promise<number | null> {
   const key = `${origin}|${dest}|${start || ''}|${end || ''}`;
   if (cache.has(key)) return cache.get(key)!;
-  // Travelpayouts only — fast, cached, and already includes low-cost carriers
-  // (Ryanair, easyJet, Transavia…). Duffel per-cell was far too slow for the grid.
   let min: number | null = null;
-  if (travelpayoutsService.configured()) {
+  // Priority: SerpApi (Google Flights) — REAL low-cost fares (Ryanair, easyJet,
+  // Wizz, Transavia). This is what makes Webbina's prices actually competitive.
+  if (serpFlightsService.configured() && start) {
+    const p = await withTimeout(serpFlightsService.cheapest(origin, dest, start, end), 9000, null);
+    if (p != null) min = p;
+  }
+  // Fallback: Travelpayouts cached fares (fast, but sparse for small airports).
+  if (min == null && travelpayoutsService.configured()) {
     const fares = await withTimeout(travelpayoutsService.cheapestForRoute({
       origin, destination: dest,
       ...(start ? { departureDate: start } : {}), ...(end ? { returnDate: end } : {}),

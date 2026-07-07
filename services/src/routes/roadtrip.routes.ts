@@ -31,15 +31,18 @@ roadtripRouter.post('/plan', validate(PlanBody, 'body'), asyncHandler(async (req
 /** GET /api/roadtrip/hotels?city=&region= — REAL hotels near a city (Google
  *  Places): name, rating, address, coords (for the map). Price = estimate by
  *  rating until Duffel Stays / RateHawk are live. */
-const HotelsQuery = z.object({ city: z.string().min(2).max(80), region: z.string().max(80).optional() });
+const HotelsQuery = z.object({ city: z.string().min(2).max(80), region: z.string().max(80).optional(), type: z.enum(['hotel', 'camping', 'insolite']).optional() });
 roadtripRouter.get('/hotels', validate(HotelsQuery, 'query'), asyncHandler(async (req, res) => {
   const q = valid<z.infer<typeof HotelsQuery>>(req);
   const near = await googleMapsService.geocode(`${q.city}${q.region ? ', ' + q.region : ''}`);
-  const places = await googleMapsService.searchPlaces({ query: `hôtel à ${q.city}`, near, radiusKm: 12 });
+  const query = q.type === 'camping' ? `camping familial à ${q.city}`
+    : q.type === 'insolite' ? `hébergement insolite (gîte, maison d'hôtes, cabane) à ${q.city}`
+    : `hôtel à ${q.city}`;
+  const places = await googleMapsService.searchPlaces({ query, near, radiusKm: q.type === 'camping' ? 30 : 15 });
+  const base = q.type === 'camping' ? 30 : q.type === 'insolite' ? 55 : 45;
   const items = (places || []).filter((p) => p.location && p.location.lat).slice(0, 12).map((p) => {
     const r = p.rating || 3.5;
-    // Estimate €/night from rating (indicative; real prices come with partners).
-    const est = Math.round(45 + (r - 3) * 55 + (Math.min(p.userRatingsTotal || 0, 2000) / 2000) * 20);
+    const est = Math.round(base + (r - 3) * 45 + (Math.min(p.userRatingsTotal || 0, 2000) / 2000) * 15);
     return {
       name: p.name || 'Hôtel', rating: p.rating || null, reviews: p.userRatingsTotal || 0,
       address: p.address || '', lat: p.location!.lat, lng: p.location!.lng,

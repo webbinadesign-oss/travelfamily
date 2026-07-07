@@ -614,12 +614,14 @@ function HotelPicker({ idx, city, region, nights, rooms, cur, tierHotels, tier, 
   const [state,setState]=React.useState('idle');
   const [minRating,setMinRating]=React.useState(0);
   const [sort,setSort]=React.useState('price');
-  async function load(){
-    if(data||state==='loading') return; setState('loading');
-    try{ const r=window.WebbinaBackend&&WebbinaBackend.cityHotels?await WebbinaBackend.cityHotels(city,region):null; if(r&&r.items&&r.items.length){ setData(r); setState('done'); } else setState('empty'); }
+  const [htype,setHtype]=React.useState('hotel');
+  async function load(t){
+    setState('loading'); setData(null);
+    try{ const r=window.WebbinaBackend&&WebbinaBackend.cityHotels?await WebbinaBackend.cityHotels(city,region,t):null; if(r&&r.items&&r.items.length){ setData(r); setState('done'); } else setState('empty'); }
     catch(e){ setState('empty'); }
   }
-  function expand(){ setOpen(o=>!o); if(!open) load(); }
+  function expand(){ setOpen(o=>!o); if(!open && !data) load(htype); }
+  function pickType(t){ setHtype(t); load(t); }
   const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
   let list=data?data.items.slice():[];
   if(minRating) list=list.filter(h=>(h.rating||0)>=minRating);
@@ -639,11 +641,16 @@ function HotelPicker({ idx, city, region, nights, rooms, cur, tierHotels, tier, 
           <button key={k} className={'tnl-tierchip'+(sel?' sel':'')} onClick={()=>onTier(h.tier)} style={sel?{ borderColor:t.c, color:t.c }:{}}>{h.tier} · {fmt(h.pricePerNight)}{cur}</button>
         ); })}
       </div>
-      <button className="tnl-hotels-toggle" onClick={expand}><Icon n="star" size={13} /> {open?'Masquer':'Voir les hôtels réels + carte'} <Icon n="chevronRight" size={14} style={{ transform:open?'rotate(90deg)':'none' }} /></button>
+      <button className="tnl-hotels-toggle" onClick={expand}><Icon n="star" size={13} /> {open?'Masquer':'Voir hôtels, campings & insolite + carte'} <Icon n="chevronRight" size={14} style={{ transform:open?'rotate(90deg)':'none' }} /></button>
       {open && (
         <div style={{ marginTop:8 }}>
-          {state==='loading' && <div className="micro" style={{ padding:8 }}>Recherche des hôtels…</div>}
-          {state==='empty' && <div className="micro" style={{ color:'var(--text-muted)', padding:8 }}>Pas d'hôtels trouvés pour cette ville.</div>}
+          <div className="seg2" style={{ marginBottom:8 }}>
+            <button className={htype==='hotel'?'on':''} onClick={()=>pickType('hotel')}>🏨 Hôtels</button>
+            <button className={htype==='camping'?'on':''} onClick={()=>pickType('camping')}>🏕️ Campings</button>
+            <button className={htype==='insolite'?'on':''} onClick={()=>pickType('insolite')}>✨ Insolite</button>
+          </div>
+          {state==='loading' && <div className="micro" style={{ padding:8 }}>Recherche en cours…</div>}
+          {state==='empty' && <div className="micro" style={{ color:'var(--text-muted)', padding:8 }}>Rien trouvé ici — essayez un autre type.</div>}
           {state==='done' && (
             <>
               {mapUrl && <img src={mapUrl} alt="Carte" crossOrigin="anonymous" style={{ width:'100%', borderRadius:'var(--r-md)', border:'1px solid var(--border)', display:'block', marginBottom:8 }} onError={e=>{e.target.style.display='none';}} />}

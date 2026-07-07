@@ -427,11 +427,12 @@
     },
 
     /** Vrais hôtels près d'une ville (Google Places) + carte. */
-    cityHotels: async function (city, region) {
+    cityHotels: async function (city, region, type) {
       if (!api() || !city) return null;
       try {
         var p = new URLSearchParams({ city: city });
         if (region) p.set('region', region);
+        if (type) p.set('type', type);
         var r = await fetch(api() + '/api/roadtrip/hotels?' + p.toString(), { cache: 'no-store' });
         if (!r.ok) return null;
         return await r.json();

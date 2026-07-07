@@ -7,6 +7,7 @@ import { duffelService } from '../services/duffel.service.js';
 import { duffelStaysService } from '../services/duffel-stays.service.js';
 import { kiwiService } from '../services/kiwi.service.js';
 import { travelpayoutsService } from '../services/travelpayouts.service.js';
+import { serpFlightsService } from '../services/serpflights.service.js';
 import { amadeusService } from '../services/amadeus.service.js';
 import { ApiError } from '../lib/ApiError.js';
 import type { FlightSearchQuery, HotelSearchQuery } from '../types/index.js';
@@ -128,22 +129,42 @@ const GridQuery = z.object({
   pax: z.coerce.number().int().min(1).max(9).optional(),
 });
 
-/** GET /api/flights/pricegrid — Google-Flights-style price matrix (departure ×
- *  return dates) for a month, in ONE Travelpayouts call. Real cached fares. */
+/** GET /api/flights/pricegrid — flexible-dates price strip. Uses Travelpayouts
+ *  cached fares first; falls back to SerpApi (Google Flights, real low-cost) by
+ *  sampling several departure days across the month for a fixed trip length. */
 flightsRouter.get('/pricegrid', validate(GridQuery, 'query'), asyncHandler(async (req, res) => {
   const q = valid<z.infer<typeof GridQuery>>(req);
-  if (!travelpayoutsService.configured()) throw ApiError.serviceUnavailable('Grille de prix indisponible.');
   const pax = q.pax || 1;
-  const fares = await travelpayoutsService.cheapestForRoute({
-    origin: q.origin, destination: q.destination,
-    departureDate: q.month, returnDate: q.returnMonth || q.month,
-    oneWay: false, limit: 30,
-  });
-  // Bucket into departure → { returnDate → price } grid.
-  const cells = fares.map((f) => ({
-    depart: f.departureDate, ret: f.returnDate || '',
-    price: Math.round(f.price * pax), airline: f.airline || '', link: f.bookLink,
-  })).filter((c) => c.depart);
+  let cells: Array<{ depart: string; ret: string; price: number; airline?: string; link?: string }> = [];
+
+  if (travelpayoutsService.configured()) {
+    try {
+      const fares = await travelpayoutsService.cheapestForRoute({
+        origin: q.origin, destination: q.destination,
+        departureDate: q.month, returnDate: q.returnMonth || q.month,
+        oneWay: false, limit: 30,
+      });
+      cells = fares.map((f) => ({ depart: f.departureDate, ret: f.returnDate || '', price: Math.round(f.price * pax), airline: f.airline || '', link: f.bookLink })).filter((c) => c.depart);
+    } catch { /* fall through to SerpApi */ }
+  }
+
+  // Fallback / enrichment via SerpApi: sample ~7 departure days (every 4 days),
+  // 7-night trips, real Google Flights fares (incl. Ryanair/easyJet).
+  if (!cells.length && serpFlightsService.configured()) {
+    const [y, m] = q.month.split('-').map(Number);
+    const days = [3, 7, 11, 15, 19, 23, 27];
+    const nights = 7;
+    const results = await Promise.all(days.map(async (d) => {
+      const dep = new Date(Date.UTC(y!, m! - 1, d));
+      const ret = new Date(dep.getTime() + nights * 86400000);
+      const depStr = dep.toISOString().slice(0, 10);
+      const retStr = ret.toISOString().slice(0, 10);
+      const p = await serpFlightsService.cheapest(q.origin, q.destination, depStr, retStr);
+      return p != null ? { depart: depStr, ret: retStr, price: Math.round(p * pax) } : null;
+    }));
+    cells = results.filter((c): c is NonNullable<typeof c> => !!c);
+  }
+
   const cheapest = cells.length ? Math.min(...cells.map((c) => c.price)) : 0;
   res.json({ origin: q.origin, destination: q.destination, month: q.month, pax, cheapest, cells });
 }));

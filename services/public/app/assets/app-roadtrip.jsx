@@ -223,12 +223,15 @@ function RoadtripProgress(){
 }
 
 function RoadtripScreen({ go, book }){
-  const [options,setOptions]=React.useState(null);   // array of complete plans
-  const [chosen,setChosen]=React.useState(null);     // selected plan (roadbook)
-  const [builder,setBuilder]=React.useState(null);   // {stops,input} — edit stops before pricing
+  const C = (window.__TF_RT_CACHE = window.__TF_RT_CACHE || {});
+  const [options,setOptions]=React.useState(C.options||null);   // array of complete plans
+  const [chosen,setChosen]=React.useState(C.chosen||null);     // selected plan (roadbook)
+  const [builder,setBuilder]=React.useState(C.builder||null);   // {stops,input} — edit stops before pricing
   const [busy,setBusy]=React.useState(false);
   const [err,setErr]=React.useState('');
-  const lastInput=React.useRef(null);
+  const lastInput=React.useRef(C.lastInput||null);
+  // Persist so returning from the price-grid (or elsewhere) restores the flow.
+  React.useEffect(()=>{ C.options=options; C.chosen=chosen; C.builder=builder; C.lastInput=lastInput.current; }, [options,chosen,builder]);
   React.useEffect(()=>{ try{ if(window.WebbinaBackend && WebbinaBackend.warm) WebbinaBackend.warm(); }catch(e){} }, []);
   // Step 1 → suggest editable stops (no pricing yet).
   async function onPlan(input){
@@ -387,7 +390,8 @@ function RoadbookTunnel({ plan, go, book, onReset }){
   const [hotelFilter,setHotelFilter]=React.useState('tous'); // tous|éco|confort|premium
 
   const STEPS = flyDrive ? ['Itinéraire','Vols','Voiture','Hôtels','Activités'] : ['Itinéraire','Hôtels','Activités'];
-  const [step,setStep]=React.useState(0);
+  const [step,setStep]=React.useState(()=>{ try{ return Math.min(window.__TF_TNL_STEP||0, (flyDrive?4:2)); }catch(e){ return 0; } });
+  React.useEffect(()=>{ try{ window.__TF_TNL_STEP=step; }catch(e){} }, [step]);
   const cur_id = STEPS[step];
   const [guided,setGuided]=React.useState(()=>{ try{ return localStorage.getItem('tf_guided')==='1'; }catch(e){ return false; } });
   function setGuide(on){ setGuided(on); try{ localStorage.setItem('tf_guided', on?'1':'0'); }catch(e){} if(!on){ try{ window.Voice&&Voice.cancel(); }catch(e){} } }
@@ -501,8 +505,12 @@ function RoadbookTunnel({ plan, go, book, onReset }){
               </button>
             ); })}
           </div>
-          <a className="btn btn--secondary btn--block btn--sm" href="https://www.discovercars.com/?a_aid=TravelFamily" target="_blank" rel="noopener" style={{ marginTop:10, textDecoration:'none' }}><Icon n="arrowRight" size={15} /> Voir les modèles disponibles</a>
-          <div className="micro" style={{ color:'var(--text-muted)', marginTop:8 }}>⚠️ Permis + carte de crédit du conducteur obligatoires au retrait.</div>
+          <a className="btn btn--secondary btn--block btn--sm" href="https://www.discovercars.com/?a_aid=TravelFamily" target="_blank" rel="noopener" style={{ marginTop:10, textDecoration:'none' }}><Icon n="arrowRight" size={15} /> Voir les modèles & loueurs disponibles</a>
+          <div className="tnl-carinfo">
+            <div><Icon n="info" size={13} /> Loueurs comparés (Europcar, Hertz, Sixt…) via notre partenaire Discover Cars.</div>
+            <div><Icon n="shield" size={13} /> <b>Carte de crédit au nom du conducteur obligatoire</b> au retrait (une carte de débit est souvent refusée pour la caution).</div>
+            <div><Icon n="info" size={13} /> Permis valide requis ; <b>permis international</b> conseillé hors Europe.</div>
+          </div>
         </div>
       )}
 

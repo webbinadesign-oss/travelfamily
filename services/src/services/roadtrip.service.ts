@@ -342,7 +342,9 @@ async function enrichVariant(
   const flights = flight?.price || 0;
   const carTotal = car?.total || 0;
   const accessCost = access?.cost || 0;
-  const total = flights + carTotal + hotelsBudget + fuel + tolls + activities + accessCost;
+  // Activities are OPTIONAL → NOT in the base total (added only if the user picks
+  // them in the tunnel). Keeps the displayed price competitive vs comparators.
+  const total = flights + carTotal + hotelsBudget + fuel + tolls + accessCost;
 
   return {
     strategy: v.strategy, label: v.label, angle: v.angle,
@@ -355,7 +357,7 @@ async function enrichVariant(
     fuelEstimate: { amount: fuel, currency }, tollsEstimate: { amount: tolls, currency },
     budget: {
       flights: Math.round(flights), car: Math.round(carTotal), hotels: Math.round(hotelsBudget),
-      fuel, tolls, activities: Math.round(activities), access: Math.round(accessCost),
+      fuel, tolls, activities: 0, access: Math.round(accessCost),
       total: Math.round(total), perPerson: Math.round(total / pax), currency,
     },
     notes: v.notes, source: 'webbina', generatedAt: new Date().toISOString(),

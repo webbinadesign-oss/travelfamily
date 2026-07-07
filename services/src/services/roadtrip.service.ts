@@ -262,32 +262,33 @@ async function enrichVariant(
     const arrivals = (stops.map((s) => s.airportIata).filter(Boolean) as string[]).slice(0, 3);
     const nearby = input.originAirports || ['MPL', 'MRS', 'TLS'];
     const origins = input.originIata === 'AUTO' ? nearby : Array.from(new Set([input.originIata, ...nearby]));
-    // One-way outbound fares: home airport → each arrival airport.
-    const outPairs: Array<{ o: string; a: string }> = [];
-    for (const o of origins) for (const a of arrivals) outPairs.push({ o, a });
-    const outFares = await Promise.all(outPairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, undefined).then((price) => ({ ...p, price }))));
-    // One-way return fares: each arrival airport → home airport (for open-jaw).
-    const retPairs: Array<{ o: string; a: string }> = [];
-    for (const a of arrivals) for (const o of origins) retPairs.push({ o: a, a: o });
-    const retFares = await Promise.all(retPairs.map((p) => cachedFare(fareCache, p.o, p.a, input.endDate, undefined).then((price) => ({ dep: p.o, home: p.a, price: p.price }))));
+    // Round-trip fares per (origin → arrival): the reliable primary price.
+    const rtPairs: Array<{ o: string; a: string }> = [];
+    for (const o of origins) for (const a of arrivals) rtPairs.push({ o, a });
+    const rtFares = await Promise.all(rtPairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, input.endDate).then((price) => ({ ...p, price }))));
+    // One-way legs (for open-jaw bonus): out home→arrival, return arrival→home.
+    const outFares = await Promise.all(rtPairs.map((p) => cachedFare(fareCache, p.o, p.a, input.startDate, undefined).then((price) => ({ ...p, price }))));
+    const retPairs: Array<{ dep: string; home: string }> = [];
+    for (const a of arrivals) for (const o of origins) retPairs.push({ dep: a, home: o });
+    const retFares = await Promise.all(retPairs.map((p) => cachedFare(fareCache, p.dep, p.home, input.endDate, undefined).then((price) => ({ ...p, price }))));
 
-    // Best round-trip per home airport (for the "compared" strip).
+    // "Compared" strip = best round-trip per departure airport.
     const perOrigin = new Map<string, number>();
-    for (const f of outFares) if (f.price != null) { const cur = perOrigin.get(f.o); if (cur == null || f.price < cur) perOrigin.set(f.o, f.price); }
+    for (const f of rtFares) if (f.price != null) { const cur = perOrigin.get(f.o); if (cur == null || f.price < cur) perOrigin.set(f.o, f.price); }
     const compared = origins
       .map((o) => ({ iata: o, price: perOrigin.has(o) ? Math.round(perOrigin.get(o)! * pax) : null }))
       .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
-    // Find cheapest outbound + cheapest return-to-same-home, allowing DIFFERENT
-    // arrival vs departure airport (open-jaw).
+    // Primary best = cheapest round-trip.
     let best: { home: string; arr: string; dep: string; price: number; openJaw: boolean } | null = null;
+    for (const f of rtFares) if (f.price != null && (!best || f.price < best.price)) best = { home: f.o, arr: f.a, dep: f.a, price: f.price, openJaw: false };
+    // Open-jaw bonus: if arrive at A, return from B (different) is cheaper overall.
     for (const out of outFares) {
       if (out.price == null) continue;
-      const rets = retFares.filter((r) => r.home === out.o && r.price != null);
-      for (const r of rets) {
-        const total = out.price + r.price!;
-        const openJaw = r.dep !== out.a;
-        if (!best || total < best.price) best = { home: out.o, arr: out.a, dep: r.dep, price: total, openJaw };
+      for (const r of retFares) {
+        if (r.price == null || r.home !== out.o) continue;
+        const total = out.price + r.price;
+        if (best && total < best.price) best = { home: out.o, arr: out.a, dep: r.dep, price: total, openJaw: r.dep !== out.a };
       }
     }
     if (best) {

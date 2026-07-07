@@ -404,6 +404,17 @@ export interface RoadTripInput {
   nightsPerCity?: Array<{ city: string; nights: number }>; // user-edited nights
 }
 
+/** City → main airport IATA (tiny reliable Gemini call). */
+async function cityAirports(cities: string[]): Promise<Record<string, string>> {
+  if (!cities.length) return {};
+  try {
+    const j = (await withTimeout(geminiService.generateJSON(`Donne le code IATA de l'aéroport commercial principal de chaque ville. Réponds en JSON compact {"Ville":"XXX"}. Si une ville n'a pas d'aéroport, ne la mets pas. Villes : ${cities.join(', ')}.`), 15000, null)) as any;
+    const out: Record<string, string> = {};
+    if (j && typeof j === 'object') for (const k of Object.keys(j)) { const v = String(j[k] || ''); if (v.length === 3) out[k.toLowerCase()] = v.toUpperCase(); }
+    return out;
+  } catch { return {}; }
+}
+
 export const roadtripService = {
   /** Suggest a light itinerary (cities + summary + things to see) WITHOUT pricing.
       Fast — used to let the user build/edit stops before generating priced options. */
@@ -426,18 +437,44 @@ Choisis 3 à 6 étapes cohérentes géographiquement (peu de route entre elles).
 
   /** Generate SEVERAL complete itinerary options to compare BEFORE booking. */
   async options(input: RoadTripInput): Promise<RoadTripPlan[]> {
-    const variants = await generateVariants(input);
-    if (!variants.length) return [];
-    // Always resolve nearby departure airports so the comparison shows Marseille,
-    // Barcelone, etc. — whether the user chose AUTO or a specific airport.
+    // Reliable path: reuse the lightweight suggest (ONE Gemini call, proven to
+    // work) then build eco/balanced/comfort variants programmatically — no
+    // fragile multi-variant JSON that was returning 503.
+    const nightsMap = new Map<string, number>();
+    (input.nightsPerCity || []).forEach((n) => { if (n && n.city) nightsMap.set(n.city.trim().toLowerCase(), Math.max(1, Number(n.nights) || 1)); });
+    const { stops: base } = await this.suggest(input);
+    if (!base.length) return [];
+    const AIRPORT_HINT: Record<string, string> = {}; // arrivals resolved by flight step from region; leave undefined here
+    const mkVariant = (strategy: string, label: string, angle: string, mult: number) => ({
+      strategy, label, angle, title: `${input.region} — ${label.toLowerCase()}`, notes: [] as string[],
+      stops: base.map((s) => ({
+        city: s.city,
+        airportIata: AIRPORT_HINT[s.city.toLowerCase()],
+        nights: nightsMap.get(s.city.trim().toLowerCase()) ?? s.nights,
+        summary: s.summary,
+        days: [{ title: `À ${s.city}`, items: s.see.length ? s.see : ['Découverte libre'] }],
+        hotels: [
+          { tier: 'éco' as const, name: 'Hôtel économique / auberge', pricePerNight: Math.round(60 * mult) },
+          { tier: 'confort' as const, name: 'Hôtel confort 3★', pricePerNight: Math.round(100 * mult) },
+          { tier: 'premium' as const, name: 'Hôtel supérieur 4★', pricePerNight: Math.round(175 * mult) },
+        ],
+      })),
+    });
+    const variants = [
+      mkVariant('eco', 'Le plus économique', 'Le meilleur prix, étapes optimisées.', 0.85),
+      mkVariant('balanced', 'Le mieux équilibré', 'Bon rapport confort/prix, rythme agréable.', 1),
+      mkVariant('comfort', 'Le plus confortable', 'Hôtels supérieurs, plus de temps sur place.', 1.15),
+    ];
+    // Resolve arrival airports for the region so the flight step works.
     if (input.mode === 'fly-drive') {
       input = { ...input, originAirports: await nearestAirports(input.origin) };
+      const arr = await regionAirports(input.region);
+      for (const v of variants) for (const st of v.stops) if (!st.airportIata && arr[st.city.toLowerCase()]) st.airportIata = arr[st.city.toLowerCase()];
     }
     const legCache: LegCache = new Map();
     const fareCache: FareCache = new Map();
     const accessCache: AccessCache = new Map();
-    // Enrich all variants IN PARALLEL (major speedup on cold Render).
-    const settled = await Promise.allSettled(variants.map((v) => enrichVariant(v, input, legCache, fareCache, accessCache)));
+    const settled = await Promise.allSettled(variants.map((v) => enrichVariant(v as any, input, legCache, fareCache, accessCache)));
     const plans: RoadTripPlan[] = [];
     for (const s of settled) { if (s.status === 'fulfilled') plans.push(s.value); else logger.warn('roadtrip enrich failed', { err: String(s.reason) }); }
     // Cheapest first.

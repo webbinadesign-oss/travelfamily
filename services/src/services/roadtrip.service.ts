@@ -376,6 +376,25 @@ export interface RoadTripInput {
 }
 
 export const roadtripService = {
+  /** Suggest a light itinerary (cities + summary + things to see) WITHOUT pricing.
+      Fast — used to let the user build/edit stops before generating priced options. */
+  async suggest(input: RoadTripInput): Promise<{ stops: Array<{ city: string; summary: string; see: string[]; nights: number }> }> {
+    const must = (input.mustSee || []).join(', ');
+    const prompt = `Tu es une experte du voyage. Propose un itinéraire de découverte pour "${input.region}"${must?`, en incluant ces villes : ${must}`:''}, pour ${input.travelers} voyageur(s)${input.startDate?`, du ${input.startDate} au ${input.endDate||'?'}`:''}.
+Choisis 3 à 6 étapes cohérentes géographiquement (peu de route entre elles). Réponds STRICTEMENT en JSON :
+{"stops":[{"city":"Porto","nights":2,"summary":"phrase courte et vendeuse","see":["incontournable 1","incontournable 2","incontournable 3"]}]}`;
+    let j = (await withTimeout(geminiService.generateJSON(prompt), 22000, null)) as any;
+    let arr = Array.isArray(j?.stops) ? j.stops : [];
+    if (!arr.length) { try { j = (await withTimeout(openaiService.generateJSON(prompt), 25000, null)) as any; arr = Array.isArray(j?.stops) ? j.stops : []; } catch { /* ignore */ } }
+    const stops = arr.map((s: any) => ({
+      city: String(s.city || '').trim(),
+      nights: Math.max(1, num(s.nights, 2)),
+      summary: String(s.summary || ''),
+      see: Array.isArray(s.see) ? s.see.map((x: any) => String(x)).slice(0, 4) : [],
+    })).filter((s: any) => s.city);
+    return { stops };
+  },
+
   /** Generate SEVERAL complete itinerary options to compare BEFORE booking. */
   async options(input: RoadTripInput): Promise<RoadTripPlan[]> {
     const variants = await generateVariants(input);

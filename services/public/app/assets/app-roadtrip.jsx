@@ -225,40 +225,101 @@ function RoadtripProgress(){
 function RoadtripScreen({ go, book }){
   const [options,setOptions]=React.useState(null);   // array of complete plans
   const [chosen,setChosen]=React.useState(null);     // selected plan (roadbook)
+  const [builder,setBuilder]=React.useState(null);   // {stops,input} — edit stops before pricing
   const [busy,setBusy]=React.useState(false);
   const [err,setErr]=React.useState('');
   const lastInput=React.useRef(null);
   React.useEffect(()=>{ try{ if(window.WebbinaBackend && WebbinaBackend.warm) WebbinaBackend.warm(); }catch(e){} }, []);
+  // Step 1 → suggest editable stops (no pricing yet).
   async function onPlan(input){
     lastInput.current = input;
-    setBusy(true); setErr(''); setOptions(null); setChosen(null);
+    setBusy(true); setErr(''); setOptions(null); setChosen(null); setBuilder(null);
     try{
-      const r = window.WebbinaBackend && WebbinaBackend.planRoadtripOptions ? await WebbinaBackend.planRoadtripOptions(input) : null;
-      if(Array.isArray(r) && r.length) setOptions(r);
-      else if(r && r.error==='timeout') setErr('C\'est un peu long — le serveur se réveillait. Relancez : ce sera rapide cette fois. 💙');
-      else if(r && r.error) setErr('Connexion au serveur difficile. Réessayez dans un instant.');
-      else setErr('Webbina n\'a pas pu générer d\'itinéraires. Vérifiez la destination et réessayez.');
+      const r = window.WebbinaBackend && WebbinaBackend.suggestRoadtrip ? await WebbinaBackend.suggestRoadtrip(input) : null;
+      if(Array.isArray(r) && r.length) setBuilder({ stops:r, input });
+      else if(r && r.error==='timeout') setErr('C\'est un peu long — le serveur se réveillait. Relancez : ce sera rapide. 💙');
+      else setErr('Webbina n\'a pas pu proposer d\'itinéraire. Vérifiez la destination et réessayez.');
     }catch(e){ setErr('Une erreur est survenue. Réessayez.'); }
     setBusy(false);
   }
+  // Step 2 → generate priced options from the validated stops.
+  async function onValidate(stops){
+    const input={ ...lastInput.current, mustSee: stops.map(s=>s.city) };
+    lastInput.current=input;
+    setBusy(true); setErr(''); setBuilder(null);
+    try{
+      const r = window.WebbinaBackend && WebbinaBackend.planRoadtripOptions ? await WebbinaBackend.planRoadtripOptions(input) : null;
+      if(Array.isArray(r) && r.length) setOptions(r);
+      else if(r && r.error==='timeout') setErr('C\'est un peu long — relancez, ce sera rapide. 💙');
+      else if(r && r.error) setErr('Connexion au serveur difficile. Réessayez.');
+      else setErr('Webbina n\'a pas pu générer d\'itinéraires. Réessayez.');
+    }catch(e){ setErr('Une erreur est survenue. Réessayez.'); }
+    setBusy(false);
+  }
+  function back(){ if(chosen) setChosen(null); else if(options){ setOptions(null); setBuilder({ stops:(lastInput.current.mustSee||[]).map(c=>({city:c,summary:'',see:[],nights:2})), input:lastInput.current }); } else if(builder) setBuilder(null); else go('home'); }
   return (
     <div className="screen" style={{ paddingBottom:30 }}>
       <div className="sub-head">
-        <button className="icon-btn" onClick={()=> chosen ? setChosen(null) : (options ? setOptions(null) : go('home'))} aria-label="Retour"><Icon n="arrowLeft" size={22} /></button>
-        <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:17 }}>{chosen?'Mon itinéraire':(options?'Comparez les options':'Carnet de route')}</b></div>
+        <button className="icon-btn" onClick={back} aria-label="Retour"><Icon n="arrowLeft" size={22} /></button>
+        <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:17 }}>{chosen?'Composer mon voyage':(options?'Comparez les options':(builder?'Votre itinéraire':'Carnet de route'))}</b></div>
       </div>
       <div style={{ padding:'14px 16px' }}>
-        {!options && !chosen && (
+        {!options && !chosen && !builder && (
           <div className="card card--pad" style={{ marginBottom:14, background:'var(--ocean-50)', border:'none' }}>
-            <div className="row gap2" style={{ alignItems:'center' }}><Avatar size={40} ring expr="enthusiastic" /><div><b style={{ fontFamily:'var(--font-display)', fontSize:15 }}>Je vous prépare plusieurs voyages</b><div className="micro" style={{ marginTop:2 }}>Comparez prix et itinéraires, choisissez, puis réservez.</div></div></div>
+            <div className="row gap2" style={{ alignItems:'center' }}><Avatar size={40} ring expr="enthusiastic" /><div><b style={{ fontFamily:'var(--font-display)', fontSize:15 }}>On construit votre voyage ensemble</b><div className="micro" style={{ marginTop:2 }}>D'abord l'itinéraire (à ajuster), puis les prix, puis vous choisissez.</div></div></div>
           </div>
         )}
         {err && <div className="card card--pad" style={{ marginBottom:12, color:'var(--coral-700,#D43B3B)' }}>{err}</div>}
-        {busy && !options && <RoadtripProgress />}
-        {chosen ? <RoadbookTunnel plan={chosen} go={go} book={book} onReset={()=>setChosen(null)} />
-          : options ? <OptionsCompare options={options} onPick={setChosen} onReset={()=>setOptions(null)} busy={busy} onChangeAirport={(iata)=>{ const inp=lastInput.current; if(inp) onPlan({ ...inp, originIata:iata }); }} />
-          : !busy && <RoadtripForm onPlan={onPlan} busy={busy} />}
+        {busy && <RoadtripProgress />}
+        {!busy && (chosen ? <RoadbookTunnel plan={chosen} go={go} book={book} onReset={()=>setChosen(null)} />
+          : options ? <OptionsCompare options={options} onPick={setChosen} onReset={()=>{ setOptions(null); }} busy={busy} onChangeAirport={(iata)=>{ const inp=lastInput.current; if(inp){ setBusy(true); WebbinaBackend.planRoadtripOptions({ ...inp, originIata:iata }).then(r=>{ if(Array.isArray(r)&&r.length) setOptions(r); setBusy(false); }); } }} />
+          : builder ? <ItineraryBuilder data={builder} region={lastInput.current.region} onValidate={onValidate} />
+          : <RoadtripForm onPlan={onPlan} busy={busy} />)}
       </div>
+    </div>
+  );
+}
+
+/* ---- Constructeur d'itinéraire (ajout/suppression de villes avant les prix) ---- */
+function ItineraryBuilder({ data, region, onValidate }){
+  const [stops,setStops]=React.useState(data.stops);
+  const [add,setAdd]=React.useState('');
+  const api=(window.WEBBINA_API||'').replace(/\/+$/,'');
+  const mapUrl = api && stops.length ? api+'/api/map/route.png?points='+encodeURIComponent(stops.map(s=>s.city).join('|'))+(region?('&region='+encodeURIComponent(region)):'') : null;
+  function remove(i){ setStops(p=>p.filter((_,k)=>k!==i)); }
+  function addCity(){ const c=add.trim(); if(c.length<2) return; setStops(p=>[...p,{ city:c, summary:'', see:[], nights:2 }]); setAdd(''); }
+  function move(i,dir){ setStops(p=>{ const n=[...p]; const j=i+dir; if(j<0||j>=n.length) return n; [n[i],n[j]]=[n[j],n[i]]; return n; }); }
+  function setNights(i,d){ setStops(p=>{ const n=[...p]; n[i]={ ...n[i], nights:Math.max(1,(n[i].nights||1)+d) }; return n; }); }
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      <div className="card card--pad" style={{ background:'var(--ocean-50)', border:'none' }}>
+        <div className="row gap2" style={{ alignItems:'center' }}><Avatar size={34} expr="happy" /><p className="micro" style={{ flex:1, lineHeight:1.45 }}>Voici l'itinéraire que je vous propose. <b>Ajoutez ou retirez des villes</b>, ajustez les nuits, puis validez — je chercherai ensuite les meilleurs prix.</p></div>
+      </div>
+      {mapUrl && <img src={mapUrl} alt="Carte" crossOrigin="anonymous" style={{ width:'100%', borderRadius:'var(--r-md)', border:'1px solid var(--border)', display:'block' }} onError={e=>{e.target.style.display='none';}} />}
+      {stops.map((s,i)=>(
+        <div key={i} className="card card--pad tnl-stop" style={{ padding:'12px 14px' }}>
+          <div className="row between" style={{ alignItems:'center' }}>
+            <div className="row gap2" style={{ alignItems:'center' }}><span className="rt-badge">{i+1}</span><b style={{ fontFamily:'var(--font-display)', fontSize:16 }}>{s.city}</b></div>
+            <div className="row gap2" style={{ alignItems:'center' }}>
+              <div className="rt-step" style={{ gap:8 }}><button onClick={()=>setNights(i,-1)}>−</button><b style={{ fontSize:13 }}>{s.nights}n</b><button onClick={()=>setNights(i,1)}>+</button></div>
+              <button className="icon-btn" onClick={()=>move(i,-1)} disabled={i===0} aria-label="Monter"><Icon n="arrowUp" size={16} /></button>
+              <button className="icon-btn" onClick={()=>move(i,1)} disabled={i===stops.length-1} aria-label="Descendre"><Icon n="arrowDown" size={16} /></button>
+              <button className="icon-btn" onClick={()=>remove(i)} aria-label="Retirer" style={{ color:'var(--coral-700,#D43B3B)' }}><Icon n="x" size={16} /></button>
+            </div>
+          </div>
+          {s.summary && <p className="micro" style={{ marginTop:6, lineHeight:1.5 }}>{s.summary}</p>}
+          {s.see && s.see.length>0 && <div className="tnl-see">{s.see.map((it,k)=><span key={k} className="tnl-chip">{it}</span>)}</div>}
+        </div>
+      ))}
+      <div className="card card--pad" style={{ padding:'12px 14px' }}>
+        <div className="row gap2">
+          <input className="rt-in" style={{ flex:1 }} placeholder="Ajouter une ville…" value={add} onChange={e=>setAdd(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCity()} />
+          <button className="btn btn--secondary btn--sm" onClick={addCity}><Icon n="plus" size={16} /> Ajouter</button>
+        </div>
+      </div>
+      <button className="btn btn--cta btn--block" disabled={stops.length<1} onClick={()=>onValidate(stops)}>
+        <Icon n="check" size={18} /> Valider — chercher les meilleurs prix
+      </button>
     </div>
   );
 }

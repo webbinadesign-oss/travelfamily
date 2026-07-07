@@ -426,6 +426,20 @@
       } catch (e) { return null; }
     },
 
+    /** Suggestion d'itinéraire (villes + à voir, sans prix) — pour construire/éditer. */
+    suggestRoadtrip: async function (input) {
+      if (!api() || !input) return null;
+      var ctrl = new AbortController();
+      var timer = setTimeout(function(){ ctrl.abort(); }, 40000);
+      try {
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, authHeaders());
+        var r = await fetch(api() + '/api/roadtrip/suggest', { method: 'POST', headers: headers, body: JSON.stringify(input), signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!r.ok) return { error: 'server' };
+        return (await r.json()).stops || [];
+      } catch (e) { clearTimeout(timer); return { error: (e && e.name==='AbortError')?'timeout':'network' }; }
+    },
+
     /** Plusieurs itinéraires complets à COMPARER avant réservation. */
     planRoadtripOptions: async function (input) {
       if (!api() || !input) return null;

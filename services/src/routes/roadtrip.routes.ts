@@ -27,6 +27,14 @@ roadtripRouter.post('/plan', validate(PlanBody, 'body'), asyncHandler(async (req
   res.json(plan);
 }));
 
+/** POST /api/roadtrip/suggest — light itinerary (cities + things to see, no pricing). */
+roadtripRouter.post('/suggest', validate(PlanBody, 'body'), asyncHandler(async (req, res) => {
+  const b = valid<z.infer<typeof PlanBody>>(req);
+  const r = await roadtripService.suggest(b);
+  if (!r.stops.length) throw ApiError.serviceUnavailable('Webbina n\'a pas pu proposer d\'itinéraire. Réessayez.');
+  res.json(r);
+}));
+
 /** POST /api/roadtrip/options — several complete itineraries to COMPARE before booking. */
 roadtripRouter.post('/options', validate(PlanBody, 'body'), asyncHandler(async (req, res) => {
   const b = valid<z.infer<typeof PlanBody>>(req);

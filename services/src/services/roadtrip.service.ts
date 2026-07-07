@@ -125,6 +125,32 @@ Prix hôtels/nuit réalistes. Toujours 3 tiers d'hôtel par ville. Reste bref po
         arr = Array.isArray(j?.variants) ? j.variants : (Array.isArray(j) ? j : []);
       } catch { /* openai not configured or failed */ }
     }
+    // Fallback 2: build 3 variants from the lightweight (reliable) skeleton.
+    if (!arr.length) {
+      const sk = (await withTimeout(geminiService.generateJSON(`Itinéraire pour "${input.region}"${must?`, incluant : ${must}`:''}, ${input.travelers} voyageur(s). Réponds en JSON compact : {"stops":[{"city":"Porto","nights":2,"summary":"phrase courte","see":["x","y","z"]}]}`), 30000, null)) as any;
+      const base = Array.isArray(sk?.stops) ? sk.stops : [];
+      if (base.length) {
+        const mk = (strategy: string, label: string, angle: string, mult: number) => ({
+          strategy, label, angle, title: `${input.region} — ${label.toLowerCase()}`, notes: [] as string[],
+          stops: base.map((s: any) => ({
+            city: String(s.city || '').trim(),
+            nights: overrideNights(String(s.city || ''), Math.max(1, num(s.nights, 2))),
+            summary: String(s.summary || ''),
+            days: [{ title: `À ${String(s.city || '').trim()}`, items: (Array.isArray(s.see) ? s.see.map((x: any) => String(x)) : ['Découverte libre']) }],
+            hotels: [
+              { tier: 'éco', name: 'Hôtel économique / auberge', pricePerNight: Math.round(60 * mult) },
+              { tier: 'confort', name: 'Hôtel confort 3★', pricePerNight: Math.round(100 * mult) },
+              { tier: 'premium', name: 'Hôtel supérieur 4★', pricePerNight: Math.round(175 * mult) },
+            ],
+          })).filter((s: any) => s.city),
+        });
+        arr = [
+          mk('eco', 'Le plus économique', 'Le meilleur prix, étapes optimisées.', 0.85),
+          mk('balanced', 'Le mieux équilibré', 'Bon rapport confort/prix, rythme agréable.', 1),
+          mk('comfort', 'Le plus confortable', 'Hôtels supérieurs, plus de temps sur place.', 1.15),
+        ];
+      }
+    }
     const out = arr.map((v: any) => ({
       strategy: String(v.strategy || 'balanced'),
       label: String(v.label || 'Itinéraire'),

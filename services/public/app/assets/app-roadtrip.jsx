@@ -77,7 +77,15 @@ function RoadtripForm({ onPlan, busy }){
 
 /* ---- Affichage du carnet ---- */
 function RoadbookView({ plan, onReset, book }){
-  const b=plan.budget, cur=b.currency==='EUR'?'€':b.currency;
+  const cur=plan.budget.currency==='EUR'?'€':plan.budget.currency;
+  const rooms=Math.max(1,Math.ceil((plan.travelers||1)/2));
+  // Per-city chosen hotel tier (default = the plan's tier). Fully switchable.
+  const [tiers,setTiers]=React.useState(()=>plan.stops.map(()=>plan.hotelTier||'confort'));
+  const hotelOf=(s,ti)=> (s.hotels && (s.hotels.find(h=>h.tier===ti)||s.hotels[0])) || null;
+  const hotelsTotal=plan.stops.reduce((sum,s,i)=>{ const h=hotelOf(s,tiers[i]); return sum+(h?h.pricePerNight*s.nights*rooms:0); },0);
+  const b0=plan.budget;
+  const b={ ...b0, hotels:Math.round(hotelsTotal), total:Math.round((b0.total-b0.hotels)+hotelsTotal), perPerson:Math.round(((b0.total-b0.hotels)+hotelsTotal)/(plan.travelers||1)) };
+  function setTier(i,ti){ setTiers(prev=>{ const n=[...prev]; n[i]=ti; return n; }); }
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
       <div className="card card--pad rt-hero">
@@ -143,20 +151,20 @@ function RoadbookView({ plan, onReset, book }){
             </div>
           ))}
 
-          {/* Comparaison hôtels */}
+          {/* Choix de l'hôtel (switchable éco / confort / premium) */}
           {s.hotels && s.hotels.length>0 && (
             <div style={{ marginTop:10 }}>
-              <div className="micro sec-cap" style={{ margin:'2px 0 6px' }}>Hôtels à {s.city} — comparez</div>
+              <div className="micro sec-cap" style={{ margin:'2px 0 6px' }}>Hôtels à {s.city} — <b>touchez pour choisir</b></div>
               <div className="rt-hotels">
-                {s.hotels.map((h,k)=>{ const t=RT_TIERS[h.tier]||RT_TIERS.confort; return (
-                  <div key={k} className="rt-hotel">
-                    <div className="rt-hotel-top" style={{ color:t.c }}><Icon n={t.ic} size={14} /> <span>{h.tier}</span></div>
+                {s.hotels.map((h,k)=>{ const t=RT_TIERS[h.tier]||RT_TIERS.confort; const sel=tiers[i]===h.tier; return (
+                  <button key={k} className={'rt-hotel'+(sel?' rt-hotel--sel':'')} onClick={()=>setTier(i,h.tier)} style={sel?{ borderColor:t.c }:{}}>
+                    <div className="rt-hotel-top" style={{ color:t.c }}><Icon n={sel?'check':t.ic} size={14} /> <span>{h.tier}</span></div>
                     <div className="rt-hotel-price"><b>{fmt(h.pricePerNight)} {cur}</b><span>/nuit</span></div>
                     <div className="micro" style={{ lineHeight:1.35 }}>{h.name}</div>
-                  </div>
+                  </button>
                 ); })}
               </div>
-              <div className="micro" style={{ color:'var(--text-muted)', marginTop:6 }}>Estimations haute saison — réservation en direct dès l'activation partenaires.</div>
+              <div className="micro" style={{ color:'var(--text-muted)', marginTop:6 }}>{s.nights} nuit{s.nights>1?'s':''} × {rooms} chambre{rooms>1?'s':''} — estimations, réservables dès activation partenaires.</div>
             </div>
           )}
         </div>
@@ -187,6 +195,29 @@ function RoadbookView({ plan, onReset, book }){
         <Icon n="download" size={16} /> Aperçu du carnet de voyage
       </button>
       <button className="btn btn--ghost btn--block" onClick={onReset}><Icon n="arrowLeft" size={16} /> Comparer à nouveau</button>
+    </div>
+  );
+}
+
+/* ---- Indicateur de progression (pendant la génération) ---- */
+function RoadtripProgress(){
+  const STEPS=['Webbina imagine 3 itinéraires','Recherche des vols les moins chers','Comparaison des aéroports proches','Calcul des trajets et du budget'];
+  const [step,setStep]=React.useState(0);
+  React.useEffect(()=>{ const id=setInterval(()=>setStep(s=>Math.min(s+1,STEPS.length-1)), 6000); return ()=>clearInterval(id); }, []);
+  return (
+    <div className="card card--pad" style={{ textAlign:'center' }}>
+      <LivingWebbina size={64} state="idle" expr="focused" style={{ margin:'0 auto 8px' }} />
+      <b style={{ fontFamily:'var(--font-display)', fontSize:16 }}>Webbina prépare votre voyage…</b>
+      <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:14, textAlign:'left' }}>
+        {STEPS.map((t,i)=>(
+          <div key={i} className="rtp-step">
+            <span className={'rtp-dot'+(i<step?' done':i===step?' active':'')}>{i<step?<Icon n="check" size={12} />:i+1}</span>
+            <span style={{ fontSize:13.5, color:i<=step?'var(--text)':'var(--text-muted)' }}>{t}</span>
+          </div>
+        ))}
+      </div>
+      <div className="rtp-bar"><div className="rtp-fill" style={{ width:((step+1)/STEPS.length*100)+'%' }}></div></div>
+      <div className="micro" style={{ color:'var(--text-muted)', marginTop:8 }}>Quelques secondes — je déniche les meilleures options 💙</div>
     </div>
   );
 }
@@ -223,9 +254,10 @@ function RoadtripScreen({ go, book }){
           </div>
         )}
         {err && <div className="card card--pad" style={{ marginBottom:12, color:'var(--coral-700,#D43B3B)' }}>{err}</div>}
-        {chosen ? <RoadbookView plan={chosen} onReset={()=>setChosen(null)} book={book} />
+        {busy && !options && <RoadtripProgress />}
+        {chosen ? <RoadbookTunnel plan={chosen} go={go} book={book} onReset={()=>setChosen(null)} />
           : options ? <OptionsCompare options={options} onPick={setChosen} onReset={()=>setOptions(null)} busy={busy} onChangeAirport={(iata)=>{ const inp=lastInput.current; if(inp) onPlan({ ...inp, originIata:iata }); }} />
-          : <RoadtripForm onPlan={onPlan} busy={busy} />}
+          : !busy && <RoadtripForm onPlan={onPlan} busy={busy} />}
       </div>
     </div>
   );
@@ -274,6 +306,206 @@ function OptionsCompare({ options, onPick, onReset, onChangeAirport, busy }){
         </div>
       ); })}
       <button className="btn btn--ghost btn--block" onClick={onReset}><Icon n="arrowLeft" size={16} /> Modifier ma demande</button>
+    </div>
+  );
+}
+
+/* ---- Tunnel séquentiel de composition (étape par étape, tout modifiable) ---- */
+function RoadbookTunnel({ plan, go, book, onReset }){
+  const cur = plan.budget.currency==='EUR'?'€':plan.budget.currency;
+  const pax = plan.travelers||1;
+  const rooms = Math.max(1, Math.ceil(pax/2));
+  const totalNights = plan.stops.reduce((s,x)=>s+x.nights,0);
+  const days = (plan.car&&plan.car.days) || (totalNights+1);
+  const CAR_CATS = [['Économique',42],['Compacte',55],['SUV / Familiale',78],['Premium',110]];
+  const flyDrive = plan.mode==='fly-drive';
+
+  const [tiers,setTiers]=React.useState(()=>plan.stops.map(()=>plan.hotelTier||'confort'));
+  const [carCat,setCarCat]=React.useState(plan.car?plan.car.category:'Compacte');
+  const [acts,setActs]=React.useState({});          // "ci:ai" -> true
+  const [hotelFilter,setHotelFilter]=React.useState('tous'); // tous|éco|confort|premium
+
+  const STEPS = flyDrive ? ['Itinéraire','Vols','Voiture','Hôtels','Activités'] : ['Itinéraire','Hôtels','Activités'];
+  const [step,setStep]=React.useState(0);
+  const cur_id = STEPS[step];
+  const [guided,setGuided]=React.useState(()=>{ try{ return localStorage.getItem('tf_guided')==='1'; }catch(e){ return false; } });
+  function setGuide(on){ setGuided(on); try{ localStorage.setItem('tf_guided', on?'1':'0'); }catch(e){} if(!on){ try{ window.Voice&&Voice.cancel(); }catch(e){} } }
+
+  // ---- budget dérivé des choix ----
+  const hotelOf=(s,ti)=> (s.hotels && (s.hotels.find(h=>h.tier===ti)||s.hotels[0])) || null;
+  const hotelsTotal=plan.stops.reduce((sum,s,i)=>{ const h=hotelOf(s,tiers[i]); return sum+(h?h.pricePerNight*s.nights*rooms:0); },0);
+  const carPerDay=(CAR_CATS.find(c=>c[0]===carCat)||[,55])[1];
+  const carTotal=flyDrive?carPerDay*days:0;
+  const actCount=Object.values(acts).filter(Boolean).length;
+  const actsTotal=actCount*25*pax;
+  const b0=plan.budget;
+  const total=Math.round((b0.flights||0)+(b0.access||0)+carTotal+hotelsTotal+(b0.fuel||0)+(b0.tolls||0)+actsTotal);
+  const perPerson=Math.round(total/pax);
+
+  function setTier(i,ti){ setTiers(p=>{ const n=[...p]; n[i]=ti; return n; }); }
+  function toggleAct(k){ setActs(p=>({ ...p, [k]:!p[k] })); }
+  const mapUrl = (()=>{ const api=(window.WEBBINA_API||'').replace(/\/+$/,''); return api?api+'/api/map/route.png?points='+encodeURIComponent(plan.stops.map(s=>s.city).join('|'))+(plan.region?('&region='+encodeURIComponent(plan.region)):''):null; })();
+
+  // Narration guidée par étape (texte lu à voix haute pour les personnes peu à l'aise).
+  const cities=plan.stops.map(s=>s.city).join(', ');
+  const GUIDE={
+    'Itinéraire':`Étape ${step+1} sur ${STEPS.length}. Voici l'itinéraire que je vous propose : ${cities}. Regardez les étapes sur la carte, puis touchez « On continue » quand vous êtes prête.`,
+    'Vols':`Le vol maintenant.${plan.flight&&plan.flight.real?` Je pars de ${plan.flight.origin} vers ${plan.flight.arrival}, pour environ ${fmt(plan.flight.price)} euros aller-retour pour tout le monde.`:''} Si vous préférez d'autres dates, touchez le calendrier des prix. Sinon, on continue.`,
+    'Voiture':`La voiture de location. J'ai pré-choisi la catégorie ${carCat}. Touchez une autre catégorie si vous voulez, le prix s'ajuste tout seul. Puis on continue.`,
+    'Hôtels':`Les hôtels. Pour chaque ville, choisissez simplement entre éco, confort ou premium en touchant la carte. Le budget total se met à jour automatiquement en haut.`,
+    'Activités':`Dernière étape : les activités, c'est optionnel. Cochez celles qui vous tentent, ou passez directement. Ensuite, touchez « Valider et réserver » et je m'occupe du reste.`,
+  };
+  React.useEffect(()=>{
+    if(!guided) return;
+    try{ window.Voice&&Voice.cancel(); window.Voice&&Voice.speak(GUIDE[cur_id]||'',{ expr:'happy' }); }catch(e){}
+    return ()=>{ try{ window.Voice&&Voice.cancel(); }catch(e){} };
+  }, [step, guided]);
+
+  function finalize(){
+    const enriched={ ...plan, hotelTierPerCity:tiers, carCategory:carCat, budget:{ ...b0, car:Math.round(carTotal), hotels:Math.round(hotelsTotal), activities:Math.round(actsTotal), total, perPerson } };
+    if(book) book({ dest:{ name:plan.title, country:plan.region }, flight:{ airline:plan.title, code:'★', price:total }, roadtrip:enriched });
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      {/* Stepper */}
+      <div className="tnl-steps">
+        {STEPS.map((s,i)=>(
+          <button key={s} className={'tnl-step'+(i===step?' on':'')+(i<step?' done':'')} onClick={()=>i<=step&&setStep(i)}>
+            <span className="tnl-num">{i<step?<Icon n="check" size={12} />:i+1}</span>
+            <span className="tnl-lbl">{s}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Bandeau budget live */}
+      <div className="tnl-budget"><span>Budget total</span><b>{fmt(total)} {cur}</b><span className="micro">≈ {fmt(perPerson)} {cur}/pers</span></div>
+
+      {/* Guide vocal Webbina (personnes peu à l'aise) */}
+      {guided ? (
+        <div className="tnl-guide">
+          <LivingWebbina size={44} state="idle" expr="happy" style={{ flex:'none' }} />
+          <div style={{ flex:1 }}><b style={{ fontFamily:'var(--font-display)', fontSize:13 }}>Webbina vous guide</b><p className="micro" style={{ marginTop:2, lineHeight:1.45 }}>{GUIDE[cur_id]}</p></div>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            <button className="icon-btn" title="Réécouter" onClick={()=>{ try{ window.Voice&&Voice.cancel(); window.Voice&&Voice.speak(GUIDE[cur_id],{expr:'happy'}); }catch(e){} }}><Icon n="mic" size={16} /></button>
+            <button className="icon-btn" title="Couper le guide" onClick={()=>setGuide(false)}><Icon n="x" size={16} /></button>
+          </div>
+        </div>
+      ) : (
+        <button className="tnl-guide-on" onClick={()=>setGuide(true)}><Icon n="sparkles" size={15} /> Besoin d'aide ? Laissez Webbina vous guider pas à pas 🔊</button>
+      )}
+
+      {/* ÉTAPE ITINÉRAIRE */}
+      {cur_id==='Itinéraire' && (
+        <div className="card card--pad">
+          <h4 style={{ fontSize:15, marginBottom:8 }}>Votre itinéraire — {plan.stops.length} étapes</h4>
+          {mapUrl && <img src={mapUrl} alt="Carte" crossOrigin="anonymous" style={{ width:'100%', borderRadius:'var(--r-md)', border:'1px solid var(--border)', display:'block', marginBottom:12 }} onError={e=>{e.target.style.display='none';}} />}
+          {plan.stops.map((s,i)=>(
+            <div key={i} className="tnl-stop">
+              {s.driveFromPrev && <div className="rt-drive"><Icon n="car" size={12} /> {hm(s.driveFromPrev.durationMin)} · {fmt(s.driveFromPrev.distanceKm)} km</div>}
+              <div className="row gap2" style={{ alignItems:'center' }}><span className="rt-badge">{i+1}</span><b style={{ fontFamily:'var(--font-display)', fontSize:16, flex:1 }}>{s.city}</b><span className="micro">{s.nights} nuit{s.nights>1?'s':''}</span></div>
+              {s.summary && <p className="micro" style={{ marginTop:4, lineHeight:1.5 }}>{s.summary}</p>}
+              {s.days && s.days[0] && s.days[0].items && <div className="tnl-see">{s.days.flatMap(d=>d.items).slice(0,4).map((it,k)=><span key={k} className="tnl-chip">{it}</span>)}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ÉTAPE VOLS */}
+      {cur_id==='Vols' && plan.flight && (
+        <div className="card card--pad">
+          <h4 style={{ fontSize:15, marginBottom:8 }}>Votre vol</h4>
+          <div className="rt-line"><div className="rt-line-ic"><Icon n="plane" size={16} /></div>
+            <div style={{ flex:1 }}><b>{plan.flight.origin} → {plan.flight.arrival}{plan.flight.returnAirport?' · retour '+plan.flight.returnAirport:''}</b><div className="micro">{plan.flight.real?`Meilleur tarif A/R · ${pax} pers.`:'Aéroport conseillé'}{plan.flight.lowcost?' · low-cost':''}</div></div>
+            <b>{plan.flight.real?fmt(plan.flight.price)+' '+cur:'—'}</b>
+          </div>
+          {plan.flight.note && <div className="micro" style={{ color:'var(--text-muted)', marginTop:6, lineHeight:1.45 }}>{plan.flight.note}</div>}
+          {plan.flight.real && <button className="btn btn--secondary btn--block btn--sm" style={{ marginTop:10 }} onClick={()=>{ window.__TF_PG={ origin:plan.flight.origin, destination:plan.flight.arrival, pax }; go('pricegrid'); }}><Icon n="grid" size={14} /> Calendrier des prix (choisir d'autres dates)</button>}
+          {plan.access && <div className="rt-line" style={{ marginTop:10 }}><div className="rt-line-ic"><Icon n={plan.access.mode==='DRIVE'?'car':'bus'} size={16} /></div><div style={{ flex:1 }}><b>Accès aéroport — {plan.access.label}</b><div className="micro">{Math.round(plan.access.durationMin)} min</div></div><b>{plan.access.cost?fmt(plan.access.cost)+' '+cur:'—'}</b></div>}
+        </div>
+      )}
+
+      {/* ÉTAPE VOITURE */}
+      {cur_id==='Voiture' && (
+        <div className="card card--pad">
+          <h4 style={{ fontSize:15, marginBottom:4 }}>Location de voiture</h4>
+          <div className="micro" style={{ marginBottom:10 }}>Prise à <b>{plan.flight?plan.flight.arrival:'l\'arrivée'}</b>{plan.flight&&plan.flight.returnAirport&&plan.flight.returnAirport!==plan.flight.arrival?<> · restitution à <b>{plan.flight.returnAirport}</b> (open-jaw)</>:' · restitution au même endroit'} · {days} jours</div>
+          <div className="tnl-cars">
+            {CAR_CATS.map(c=>{ const sel=carCat===c[0]; return (
+              <button key={c[0]} className={'tnl-car'+(sel?' sel':'')} onClick={()=>setCarCat(c[0])}>
+                <Icon n="car" size={18} />
+                <b>{c[0]}</b>
+                <span>{c[1]} {cur}/j</span>
+                <span className="micro">{fmt(c[1]*days)} {cur} total</span>
+              </button>
+            ); })}
+          </div>
+          <a className="btn btn--secondary btn--block btn--sm" href="https://www.discovercars.com/?a_aid=TravelFamily" target="_blank" rel="noopener" style={{ marginTop:10, textDecoration:'none' }}><Icon n="arrowRight" size={15} /> Voir les modèles disponibles</a>
+          <div className="micro" style={{ color:'var(--text-muted)', marginTop:8 }}>⚠️ Permis + carte de crédit du conducteur obligatoires au retrait.</div>
+        </div>
+      )}
+
+      {/* ÉTAPE HÔTELS */}
+      {cur_id==='Hôtels' && (
+        <div className="card card--pad">
+          <div className="row between" style={{ alignItems:'center', marginBottom:8 }}>
+            <h4 style={{ fontSize:15 }}>Hôtels par étape</h4>
+            <select className="tnl-filter" value={hotelFilter} onChange={e=>setHotelFilter(e.target.value)}>
+              <option value="tous">Tous les niveaux</option><option value="éco">Éco</option><option value="confort">Confort</option><option value="premium">Premium</option>
+            </select>
+          </div>
+          {plan.stops.map((s,i)=>{ const list=(s.hotels||[]).filter(h=>hotelFilter==='tous'||h.tier===hotelFilter).slice().sort((a,b)=>a.pricePerNight-b.pricePerNight); return (
+            <div key={i} className="tnl-hstop">
+              <div className="row between"><b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>{i+1}. {s.city}</b><span className="micro">{s.nights} nuit{s.nights>1?'s':''}</span></div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:6 }}>
+                {list.map((h,k)=>{ const t=RT_TIERS[h.tier]||RT_TIERS.confort; const sel=tiers[i]===h.tier; return (
+                  <button key={k} className={'tnl-hotel'+(sel?' sel':'')} onClick={()=>setTier(i,h.tier)} style={sel?{ borderColor:t.c }:{}}>
+                    <span className="tnl-htier" style={{ color:t.c }}><Icon n={sel?'check':t.ic} size={13} /> {h.tier}</span>
+                    <span style={{ flex:1, textAlign:'left', fontSize:12.5 }}>{h.name}</span>
+                    <b style={{ fontFamily:'var(--font-display)', fontSize:13.5 }}>{fmt(h.pricePerNight)} {cur}<span className="micro">/nuit</span></b>
+                  </button>
+                ); })}
+              </div>
+            </div>
+          ); })}
+          <div className="micro" style={{ color:'var(--text-muted)', marginTop:8 }}>Estimations haute saison × {rooms} chambre{rooms>1?'s':''}. Réservation en direct dès activation partenaires.</div>
+        </div>
+      )}
+
+      {/* ÉTAPE ACTIVITÉS */}
+      {cur_id==='Activités' && (
+        <div className="card card--pad">
+          <h4 style={{ fontSize:15, marginBottom:4 }}>Activités à ajouter</h4>
+          <div className="micro" style={{ marginBottom:10 }}>Optionnel — ~25 {cur}/personne par activité. Cochez ce qui vous tente.</div>
+          {plan.stops.map((s,ci)=>(
+            <div key={ci} className="tnl-hstop">
+              <b style={{ fontFamily:'var(--font-display)', fontSize:14 }}>{s.city}</b>
+              <div style={{ display:'flex', flexDirection:'column', gap:5, marginTop:6 }}>
+                {[...new Set(s.days.flatMap(d=>d.items))].slice(0,5).map((it,ai)=>{ const k=ci+':'+ai; const on=!!acts[k]; return (
+                  <button key={ai} className={'tnl-act'+(on?' on':'')} onClick={()=>toggleAct(k)}>
+                    <span className={'tnl-check'+(on?' on':'')}>{on&&<Icon n="check" size={11} />}</span>
+                    <span style={{ flex:1, textAlign:'left', fontSize:12.5 }}>{it}</span>
+                    {on&&<b className="micro" style={{ color:'var(--ocean-700)' }}>+{25*pax} {cur}</b>}
+                  </button>
+                ); })}
+              </div>
+            </div>
+          ))}
+          <a className="btn btn--secondary btn--block btn--sm" href="https://www.getyourguide.fr?partner_id=Q2FL4D9&cmp=share_to_earn" target="_blank" rel="noopener" style={{ marginTop:10, textDecoration:'none' }}><Icon n="star" size={15} /> Explorer plus d'activités</a>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="row gap2">
+        {step>0 && <button className="btn btn--ghost" style={{ flex:1 }} onClick={()=>setStep(step-1)}><Icon n="arrowLeft" size={16} /> Précédent</button>}
+        {step<STEPS.length-1
+          ? <button className="btn btn--primary" style={{ flex:2, ...(guided?{ minHeight:56, fontSize:16 }:{}) }} onClick={()=>setStep(step+1)}>{guided?'On continue':'Continuer'} <Icon n="arrowRight" size={16} /></button>
+          : <button className="btn btn--cta" style={{ flex:2, ...(guided?{ minHeight:56, fontSize:16 }:{}) }} onClick={finalize}><Icon n="check" size={18} /> Valider et réserver</button>}
+      </div>
+      <div className="row gap2">
+        <button className="btn btn--ghost btn--sm" style={{ flex:1 }} onClick={()=>{ window.__TF_CARNET_PLAN={ ...plan, hotelTierPerCity:tiers }; go('carnet'); }}><Icon n="download" size={14} /> Aperçu carnet</button>
+        <button className="btn btn--ghost btn--sm" style={{ flex:1 }} onClick={onReset}>Autres itinéraires</button>
+      </div>
     </div>
   );
 }

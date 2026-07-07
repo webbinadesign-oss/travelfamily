@@ -528,6 +528,45 @@
   .rt-hotel{ border:1px solid var(--border); border-radius:var(--r-md); padding:10px 9px; background:var(--surface); }
   .rt-hotel-top{ display:flex; align-items:center; gap:4px; font:800 10px var(--font-display); text-transform:uppercase; letter-spacing:.03em; }
   .rt-hotel-price{ margin:5px 0 3px; } .rt-hotel-price b{ font-family:var(--font-display); font-size:16px; } .rt-hotel-price span{ font-size:10px; color:var(--text-muted); }
+  .rt-hotel{ text-align:left; cursor:pointer; width:100%; }
+  .rt-hotel--sel{ box-shadow:0 0 0 2px currentColor inset; }
+  .rtp-step{ display:flex; align-items:center; gap:10px; }
+  .rtp-dot{ width:22px; height:22px; border-radius:50%; flex:none; display:grid; place-items:center; font:700 11px var(--font-display); background:var(--surface-sunk); color:var(--text-muted); }
+  .rtp-dot.active{ background:var(--ocean-700); color:#fff; animation:rtpPulse 1.2s ease-in-out infinite; }
+  .rtp-dot.done{ background:var(--success,#15A34A); color:#fff; }
+  @keyframes rtpPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.14); } }
+  .rtp-bar{ height:6px; border-radius:99px; background:var(--surface-sunk); overflow:hidden; margin-top:14px; }
+  .rtp-fill{ height:100%; background:var(--ocean-700); border-radius:99px; transition:width .6s ease; }
+
+  /* ===== TUNNEL SÉQUENTIEL ===== */
+  .tnl-steps{ display:flex; gap:4px; overflow-x:auto; padding-bottom:2px; }
+  .tnl-step{ flex:1; min-width:64px; display:flex; flex-direction:column; align-items:center; gap:4px; border:none; background:none; cursor:pointer; padding:4px 2px; }
+  .tnl-num{ width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font:700 12px var(--font-display); background:var(--surface-sunk); color:var(--text-muted); border:1.5px solid transparent; }
+  .tnl-step.on .tnl-num{ background:var(--ocean-700); color:#fff; }
+  .tnl-step.done .tnl-num{ background:var(--success,#15A34A); color:#fff; }
+  .tnl-lbl{ font:600 10.5px var(--font-display); color:var(--text-muted); white-space:nowrap; }
+  .tnl-step.on .tnl-lbl{ color:var(--ocean-700); }
+  .tnl-budget{ display:flex; align-items:baseline; gap:8px; background:var(--grad-premium,var(--ocean-700)); color:#fff; border-radius:var(--r-md); padding:11px 15px; }
+  .tnl-budget span:first-child{ font-size:12px; opacity:.85; } .tnl-budget b{ font-family:var(--font-display); font-size:20px; } .tnl-budget .micro{ margin-left:auto; color:rgba(255,255,255,.8); }
+  .tnl-stop{ padding:10px 0; border-bottom:1px dashed var(--border); }
+  .tnl-stop:last-child{ border-bottom:none; }
+  .tnl-see{ display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+  .tnl-chip{ font-size:11px; color:var(--text-2); background:var(--surface-sunk); border-radius:var(--r-pill); padding:3px 9px; }
+  .tnl-cars{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tnl-car{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; border:1.5px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:11px 12px; cursor:pointer; color:var(--text); }
+  .tnl-car svg{ color:var(--ocean-700); margin-bottom:3px; } .tnl-car b{ font-family:var(--font-display); font-size:13.5px; } .tnl-car span{ font-size:11.5px; color:var(--text-2); }
+  .tnl-car.sel{ border-color:var(--ocean-700); background:var(--ocean-50); }
+  .tnl-filter{ font:600 12px var(--font-display); border:1px solid var(--border); border-radius:var(--r-pill); padding:5px 10px; background:var(--surface); color:var(--text); }
+  .tnl-hstop{ padding:10px 0; border-bottom:1px dashed var(--border); } .tnl-hstop:last-child{ border-bottom:none; }
+  .tnl-hotel{ display:flex; align-items:center; gap:9px; width:100%; border:1.5px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:9px 11px; cursor:pointer; }
+  .tnl-hotel.sel{ background:var(--ocean-50); }
+  .tnl-htier{ display:inline-flex; align-items:center; gap:3px; font:800 10px var(--font-display); text-transform:uppercase; flex:none; width:66px; }
+  .tnl-act{ display:flex; align-items:center; gap:9px; width:100%; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:9px 11px; cursor:pointer; }
+  .tnl-act.on{ border-color:var(--ocean-700); background:var(--ocean-50); }
+  .tnl-check{ width:19px; height:19px; border-radius:6px; border:1.5px solid var(--border-strong,var(--border)); display:grid; place-items:center; flex:none; color:#fff; }
+  .tnl-check.on{ background:var(--ocean-700); border-color:var(--ocean-700); }
+  .tnl-guide{ display:flex; align-items:flex-start; gap:10px; background:var(--ocean-50); border:1px solid color-mix(in srgb, var(--ocean-700) 22%, transparent); border-radius:var(--r-md); padding:11px 13px; }
+  .tnl-guide-on{ display:flex; align-items:center; justify-content:center; gap:7px; width:100%; border:1.5px dashed color-mix(in srgb, var(--ocean-700) 40%, transparent); background:var(--ocean-50); color:var(--ocean-700); font:700 13px var(--font-display); border-radius:var(--r-md); padding:11px; cursor:pointer; }
   .rt-brow{ display:flex; justify-content:space-between; padding:7px 0; font-size:13.5px; border-bottom:1px dashed var(--border); }
   .rt-brow b{ font-family:var(--font-display); }
   .rt-btotal{ border-bottom:none; border-top:2px solid var(--text); margin-top:4px; padding-top:9px; font-size:15px; }

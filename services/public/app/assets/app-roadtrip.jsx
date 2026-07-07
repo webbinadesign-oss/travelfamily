@@ -196,8 +196,10 @@ function RoadtripScreen({ go, book }){
   const [chosen,setChosen]=React.useState(null);     // selected plan (roadbook)
   const [busy,setBusy]=React.useState(false);
   const [err,setErr]=React.useState('');
+  const lastInput=React.useRef(null);
   React.useEffect(()=>{ try{ if(window.WebbinaBackend && WebbinaBackend.warm) WebbinaBackend.warm(); }catch(e){} }, []);
   async function onPlan(input){
+    lastInput.current = input;
     setBusy(true); setErr(''); setOptions(null); setChosen(null);
     try{
       const r = window.WebbinaBackend && WebbinaBackend.planRoadtripOptions ? await WebbinaBackend.planRoadtripOptions(input) : null;
@@ -222,7 +224,7 @@ function RoadtripScreen({ go, book }){
         )}
         {err && <div className="card card--pad" style={{ marginBottom:12, color:'var(--coral-700,#D43B3B)' }}>{err}</div>}
         {chosen ? <RoadbookView plan={chosen} onReset={()=>setChosen(null)} book={book} />
-          : options ? <OptionsCompare options={options} onPick={setChosen} onReset={()=>setOptions(null)} />
+          : options ? <OptionsCompare options={options} onPick={setChosen} onReset={()=>setOptions(null)} busy={busy} onChangeAirport={(iata)=>{ const inp=lastInput.current; if(inp) onPlan({ ...inp, originIata:iata }); }} />
           : <RoadtripForm onPlan={onPlan} busy={busy} />}
       </div>
     </div>
@@ -230,7 +232,7 @@ function RoadtripScreen({ go, book }){
 }
 
 /* ---- Comparaison des itinéraires (AVANT réservation) ---- */
-function OptionsCompare({ options, onPick, onReset }){
+function OptionsCompare({ options, onPick, onReset, onChangeAirport, busy }){
   const cheapest = Math.min(...options.map(o=>o.budget.total));
   const STRAT = { eco:{ ic:'leaf', c:'var(--success,#15A34A)' }, balanced:{ ic:'star', c:'var(--ocean-700)' }, comfort:{ ic:'crown', c:'var(--gold-700,#B8841C)' } };
   return (
@@ -255,10 +257,10 @@ function OptionsCompare({ options, onPick, onReset }){
               <div className="opt-cmp-h"><Icon n="sparkles" size={12} /> Webbina a comparé {o.flight.compared.length} aéroports de départ</div>
               <div className="opt-cmp-row">
                 {o.flight.compared.map(c=>(
-                  <span key={c.iata} className={'opt-cmp-chip'+(c.iata===o.flight.airport?' win':'')}>{c.iata}{c.price!=null?' '+fmt(c.price)+cur:''}</span>
+                  <button key={c.iata} type="button" disabled={busy||c.iata===o.flight.origin} onClick={()=>onChangeAirport&&onChangeAirport(c.iata)} className={'opt-cmp-chip'+(c.iata===o.flight.origin?' win':'')} title={c.iata===o.flight.origin?'Aéroport retenu':'Recalculer depuis '+c.iata}>{c.iata}{c.price!=null?' '+fmt(c.price)+cur:''}</button>
                 ))}
               </div>
-              <div className="opt-cmp-note">{withP.length? <>✓ <b>{o.flight.airport}</b> retenu — le moins cher</> : 'Tarifs indicatifs indisponibles pour ces dates — aéroport le plus proche retenu'}</div>
+              <div className="opt-cmp-note">{busy? 'Recalcul en cours…' : (withP.length? <>✓ <b>{o.flight.origin}</b> retenu · <b>touchez un aéroport</b> pour recalculer depuis là</> : 'Tarifs indicatifs indisponibles pour ces dates — aéroport le plus proche retenu')}</div>
             </div>
           ); })()}
           {o.access && <div className="opt-flight"><Icon n={o.access.mode==='DRIVE'?'car':'bus'} size={13} /> <b>Accès aéroport</b> <span className="micro">· {o.access.label}{o.access.cost?` · ~${fmt(o.access.cost)} ${cur}`:''}</span></div>}
